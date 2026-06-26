@@ -109,16 +109,73 @@ A `Main` lê o argumento `script_vencedor.txt` e passa para o `Terminal`, que va
 ---
 
 ### `Terminal`
-> **Toda a comunicação com o usuário passa por aqui.** Nenhuma outra classe deve usar `Scanner` ou `System.out.println` diretamente. Isso mantém o restante do código limpo e testável.
+> **É o único ponto de contato entre o jogo e o mundo externo** — tanto para exibir texto na tela quanto para ler o que o jogador digita. Nenhuma outra classe usa `Scanner` ou `System.out.println` diretamente.
 
-**Por que isso é importante?** Porque se você quiser testar o jogo sem digitar nada (rodar um script automático para a apresentação), basta criar um `Terminal` que lê de um arquivo `.txt`. O `Jogo` não precisa nem saber disso — ele continua chamando `terminal.lerEntrada()` normalmente.
+#### Por que existe essa classe?
+
+Imagine que o jogo está funcionando e você precisa testá-lo. Sem o `Terminal`, você teria que sentar na frente do computador e digitar todas as escolhas manualmente cada vez que rodasse o jogo. Com erros no meio do caminho, isso vira um pesadelo.
+
+O `Terminal` resolve isso com uma ideia simples: **ele não sabe nem se importa de onde vem a entrada.** Pode ser o teclado, pode ser um arquivo. O resto do jogo não muda nada.
+
+#### Como funciona na prática
+
+A cada cena do jogo, o `Jogo` precisa saber qual pista o jogador escolheu. Ele faz isso chamando `terminal.lerEntrada()`. O que acontece a seguir depende de como o `Terminal` foi criado:
+
+**Modo teclado** (jogando normalmente):
+```
+[Cena 1 aparece na tela]
+[Menu: "1. Faca    2. Janela Arrombada"]
+Jogo chama → terminal.lerEntrada()
+Jogador digita "1" e aperta Enter
+Terminal devolve → "1"
+Jogo registra a Pista "faca" na ListaEncadeada
+[Cena 2 aparece na tela com novas pistas liberadas]
+```
+
+**Modo arquivo** (para a apresentação ao professor):
+```
+[Cena 1 aparece na tela]
+[Menu: "1. Faca    2. Janela Arrombada"]
+Jogo chama → terminal.lerEntrada()
+Terminal lê a próxima linha do arquivo .txt → "1"
+Terminal devolve → "1"
+Jogo registra a Pista "faca" na ListaEncadeada
+[Cena 2 aparece na tela — sem ninguém ter digitado nada]
+```
+
+O comportamento do jogo é **idêntico nos dois modos**. A única diferença é como o `Terminal` obtém a resposta.
+
+#### Como é o arquivo de script `.txt`
+
+Cada linha do arquivo representa **uma entrada que o jogador daria**. A ordem das linhas segue exatamente a ordem em que o jogo vai pedir as informações:
+
+```
+Andre
+1
+2
+1
+```
+
+Linha 1 → nome do jogador no login  
+Linha 2 → escolha na Cena 1 (opção "1" = Faca)  
+Linha 3 → escolha na Cena 2 (opção "2")  
+Linha 4 → escolha na Cena 3 (opção "1")  
+
+Para rodar o jogo em modo automático:
+```bash
+java Main test_inputs/vitoria.txt
+```
+
+O jogo roda do início ao fim sem nenhuma interação. Perfeito para a apresentação.
+
+#### Tabela de métodos
 
 | Método | O que faz |
 |---|---|
-| `Terminal(String arquivoInput)` | Se `arquivoInput` for `null`, usa o teclado (`System.in`). Se for um caminho de arquivo, lê dali. |
-| `lerEntrada()` | Retorna a próxima linha digitada (ou a próxima linha do arquivo). |
-| `exibir(String texto)` | Faz o `System.out.println`. |
-| `loginUsuario()` | Pede o nome do jogador e retorna como String. |
+| `Terminal(String arquivoInput)` | Se `arquivoInput` for `null`, prepara para ler do teclado. Se for um caminho de arquivo, abre o arquivo para leitura. |
+| `lerEntrada()` | Retorna a próxima linha — seja do teclado ou do arquivo, transparentemente. |
+| `exibir(String texto)` | Imprime texto na tela (`System.out.println`). |
+| `loginUsuario()` | Exibe a mensagem de login, chama `lerEntrada()` e retorna o nome digitado. |
 
 ---
 
