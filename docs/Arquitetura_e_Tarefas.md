@@ -1,25 +1,19 @@
 # Arquitetura e Organização do Projeto
 ### Jogo Investigativo — Estrutura de Dados (2º Período ADS)
 
-Este documento descreve **como o sistema é organizado**, **o que cada classe faz**, **como elas se conversam** e **quem deve implementar cada parte**. Leia com atenção antes de começar a codificar.
+Este documento descreve **o que cada classe faz**, **como elas se conversam** e **quem implementa cada parte**. Leia antes de começar a codificar.
 
 ---
 
 ## 1. Visão Geral do Sistema
 
-O jogo roda no terminal. O jogador faz login, lê a narrativa de uma cena e escolhe qual pista investigar. O sistema registra cada escolha em uma **Lista Encadeada** (o histórico) e consulta uma **Árvore** (o gabarito lógico) para decidir o que acontece a seguir. Se a sequência de pistas for incorreta, o jogo exibe o caminho errado e reinicia.
-
-```
-[Jogador digita] → [Terminal lê] → [Jogo decide] → [Arvore valida] → [Lista registra]
-                                        ↓
-                              [Relatório / Reinício]
-```
+O jogo roda no terminal. O jogador faz login, lê a narrativa de uma cena e escolhe qual pista investigar. O sistema registra cada escolha em uma **Lista Encadeada** (o histórico) e consulta uma **Árvore** (o gabarito lógico) para decidir o que acontece a seguir. Se a sequência de pistas for incorreta, o jogo exibe um **relatório** com o caminho percorrido e reinicia.
 
 ---
 
 ## 2. Diagrama de Classes
 
-Cada caixa é uma classe Java. As setas mostram qual classe usa qual. As bolinhas cheias (`*--`) indicam que uma classe contém a outra (composição).
+Cada caixa é uma classe Java. As setas mostram qual classe usa qual. As bolinhas cheias (`*--`) indicam que uma classe contém a outra.
 
 ```mermaid
 classDiagram
@@ -40,12 +34,13 @@ classDiagram
         -Arvore dependencias
         -Terminal terminal
         -String nomeJogador
+        -int tentativas
         +Jogo(Terminal terminal)
         +iniciar()
         -rodarCenas()
         -verificarGameOver() boolean
         -reiniciar()
-        -imprimirRelatorio()
+        -imprimirRelatorio(boolean venceu)
     }
 
     class Pista {
@@ -58,7 +53,6 @@ classDiagram
         -NoLista inicio
         +inserirPista(String id)
         +contemPista(String id) boolean
-        +toArray() String[]
         +imprimirHistorico()
     }
 
@@ -70,7 +64,6 @@ classDiagram
     class Arvore {
         -NoArvore raiz
         +inserirDependencia(String idPai, Pista filha)
-        +verificarAcesso(String idPista, ListaEncadeada historico) boolean
         +getPistasDisponiveis(ListaEncadeada historico) List~Pista~
         -buscarNo(String id) NoArvore
     }
@@ -91,63 +84,57 @@ classDiagram
     NoArvore --> Pista : armazena
 ```
 
+> **Nota:** `verificarAcesso` foi removido como método público. A lógica de acesso está encapsulada dentro de `getPistasDisponiveis` — o `Jogo` nunca precisa validar individualmente; ele apenas pede "quais pistas estão disponíveis agora?" e usa o resultado.
+
 ---
 
-## 3. O Que Cada Classe Faz (Explicação Detalhada)
+## 3. O Que Cada Classe Faz
 
 ---
 
 ### `Main`
-> **Ponto de entrada do programa.** É a única classe que tem o método `main`. Ela cria um `Terminal` e um `Jogo`, passa um para o outro e dá o `iniciar()`. É propositalmente simples — não contém lógica de jogo.
+> **Ponto de entrada do programa.** Cria um `Terminal` e um `Jogo`, passa um para o outro e chama `iniciar()`. Não contém nenhuma lógica de jogo.
 
-Se o usuário rodar o jogo assim:
+Se o jogo for chamado com um arquivo de script:
 ```bash
-java Main script_vencedor.txt
+java Main test_inputs/vitoria.txt
 ```
-A `Main` lê o argumento `script_vencedor.txt` e passa para o `Terminal`, que vai usar o arquivo no lugar do teclado.
+A `Main` lê o argumento e passa para o `Terminal`, que vai usá-lo no lugar do teclado.
 
 ---
 
 ### `Terminal`
-> **É o único ponto de contato entre o jogo e o mundo externo** — tanto para exibir texto na tela quanto para ler o que o jogador digita. Nenhuma outra classe usa `Scanner` ou `System.out.println` diretamente.
+> **É o único ponto de contato entre o jogo e o mundo externo** — para exibir texto e para ler o que o jogador digita. Nenhuma outra classe usa `Scanner` ou `System.out.println` diretamente.
 
 #### Por que existe essa classe?
 
-Imagine que o jogo está funcionando e você precisa testá-lo. Sem o `Terminal`, você teria que sentar na frente do computador e digitar todas as escolhas manualmente cada vez que rodasse o jogo. Com erros no meio do caminho, isso vira um pesadelo.
+O `Terminal` resolve um problema prático: **testar o jogo exige digitar todas as escolhas manualmente a cada execução**. Ao centralizar toda leitura aqui, é possível substituir o teclado por um arquivo de texto sem mudar nada no resto do jogo.
 
-O `Terminal` resolve isso com uma ideia simples: **ele não sabe nem se importa de onde vem a entrada.** Pode ser o teclado, pode ser um arquivo. O resto do jogo não muda nada.
+#### Como funciona em uma cena
 
-#### Como funciona na prática
+A cada cena, o `Jogo` exibe o menu de pistas e chama `terminal.lerEntrada()` para saber a escolha do jogador. O `Terminal` devolve uma `String` — e não importa de onde ela veio:
 
-A cada cena do jogo, o `Jogo` precisa saber qual pista o jogador escolheu. Ele faz isso chamando `terminal.lerEntrada()`. O que acontece a seguir depende de como o `Terminal` foi criado:
-
-**Modo teclado** (jogando normalmente):
+**Modo teclado:**
 ```
-[Cena 1 aparece na tela]
 [Menu: "1. Faca    2. Janela Arrombada"]
 Jogo chama → terminal.lerEntrada()
 Jogador digita "1" e aperta Enter
 Terminal devolve → "1"
-Jogo registra a Pista "faca" na ListaEncadeada
-[Cena 2 aparece na tela com novas pistas liberadas]
 ```
 
-**Modo arquivo** (para a apresentação ao professor):
+**Modo arquivo:**
 ```
-[Cena 1 aparece na tela]
 [Menu: "1. Faca    2. Janela Arrombada"]
 Jogo chama → terminal.lerEntrada()
 Terminal lê a próxima linha do arquivo .txt → "1"
 Terminal devolve → "1"
-Jogo registra a Pista "faca" na ListaEncadeada
-[Cena 2 aparece na tela — sem ninguém ter digitado nada]
 ```
 
-O comportamento do jogo é **idêntico nos dois modos**. A única diferença é como o `Terminal` obtém a resposta.
+O comportamento do jogo é **idêntico nos dois casos**.
 
-#### Como é o arquivo de script `.txt`
+#### Como montar o arquivo de script
 
-Cada linha do arquivo representa **uma entrada que o jogador daria**. A ordem das linhas segue exatamente a ordem em que o jogo vai pedir as informações:
+Cada linha do arquivo é uma entrada que o jogador daria, na ordem em que o jogo vai pedi-las:
 
 ```
 Andre
@@ -155,168 +142,180 @@ Andre
 2
 1
 ```
+Linha 1 → nome do jogador (login)
+Linha 2 → escolha na Cena 1
+Linha 3 → escolha na Cena 2
+Linha 4 → escolha na Cena 3
 
-Linha 1 → nome do jogador no login  
-Linha 2 → escolha na Cena 1 (opção "1" = Faca)  
-Linha 3 → escolha na Cena 2 (opção "2")  
-Linha 4 → escolha na Cena 3 (opção "1")  
-
-Para rodar o jogo em modo automático:
-```bash
-java Main test_inputs/vitoria.txt
-```
-
-O jogo roda do início ao fim sem nenhuma interação. Perfeito para a apresentação.
-
-#### Tabela de métodos
+#### Métodos
 
 | Método | O que faz |
 |---|---|
-| `Terminal(String arquivoInput)` | Se `arquivoInput` for `null`, prepara para ler do teclado. Se for um caminho de arquivo, abre o arquivo para leitura. |
-| `lerEntrada()` | Retorna a próxima linha — seja do teclado ou do arquivo, transparentemente. |
-| `exibir(String texto)` | Imprime texto na tela (`System.out.println`). |
-| `loginUsuario()` | Exibe a mensagem de login, chama `lerEntrada()` e retorna o nome digitado. |
+| `Terminal(String arquivoInput)` | Se `arquivoInput` for `null`, lê do teclado. Se for um caminho de arquivo, lê dali. |
+| `lerEntrada()` | Retorna a próxima linha — do teclado ou do arquivo, de forma transparente. |
+| `exibir(String texto)` | Imprime texto na tela. |
+| `loginUsuario()` | Pede o nome do jogador e retorna como String. |
 
 ---
 
 ### `Jogo`
-> **O coração do sistema.** Controla o fluxo do jogo: login, cenas, validação, relatório e reinício. Não faz IO diretamente — sempre pede ao `Terminal`.
-
-**Por que `Jogo` recebe `Terminal` no construtor?** Para que Dev B (dono do `Jogo`) nunca precise mexer no código de IO. Se o `Terminal` mudar, o `Jogo` não muda. Isso é o que chamamos de baixo acoplamento.
+> **O coração do sistema.** Controla o fluxo: login, cenas, validação, relatório e reinício. Não faz IO diretamente — sempre delega ao `Terminal`.
 
 | Método | O que faz |
 |---|---|
-| `iniciar()` | Chama `loginUsuario()`, monta a `Arvore` com as pistas do caso e entra no loop de cenas. |
-| `rodarCenas()` | Itera pelas cenas (3 a 5). Em cada cena, chama `dependencias.getPistasDisponiveis(historico)` para saber quais pistas mostrar, exibe o menu, lê a escolha do jogador e insere na `ListaEncadeada`. |
-| `verificarGameOver()` | Verifica se a última pista inserida leva a um beco sem saída na Árvore (caminho inválido). Retorna `true` se o jogo acabou. |
-| `reiniciar()` | Limpa o histórico (`historico = new ListaEncadeada()`) e volta para o início de `rodarCenas()`. |
-| `imprimirRelatorio()` | Chama `historico.imprimirHistorico()` para mostrar o caminho percorrido, e explica onde o jogador errou. |
+| `iniciar()` | Faz o login, monta a `Arvore` com o gabarito do caso e entra no loop de cenas. |
+| `rodarCenas()` | Para cada cena, chama `getPistasDisponiveis()` na Árvore, exibe o menu, lê a escolha e insere na `ListaEncadeada`. Ao final de cada cena, checa se houve Game Over. |
+| `verificarGameOver()` | Verifica se a última pista inserida não tem filhos na Árvore (beco sem saída) ou leva a um ramo incorreto. Retorna `true` se o jogo terminou. |
+| `reiniciar()` | Incrementa `tentativas`, limpa o histórico (`historico = new ListaEncadeada()`) e volta ao início de `rodarCenas()`. |
+| `imprimirRelatorio(boolean venceu)` | Exibe o relatório final (ver seção 4). |
 
 ---
 
 ### `Pista`
-> **Objeto de dados simples.** Representa uma evidência do caso. Não tem lógica — só guarda informação.
+> **Objeto de dados puro.** Representa uma evidência. Não tem lógica — apenas armazena informação.
 
 ```java
-// Exemplo de como uma pista é criada no Jogo
 Pista faca = new Pista("faca", "Faca de cozinha", "Uma faca com manchas escuras na lâmina.");
 ```
 
-Ter uma classe `Pista` em vez de usar apenas `String` permite que a `Arvore` armazene o texto descritivo da evidência junto com o ID. O `Jogo` simplesmente pega a descrição do nó e exibe para o jogador — sem precisar de um `if/switch` gigante.
+Ter a classe `Pista` permite que a `Arvore` carregue o texto da evidência junto com o nó. O `Jogo` lê a descrição diretamente do nó e exibe ao jogador — sem `if/switch` gigante.
 
 ---
 
 ### `ListaEncadeada` e `NoLista`
-> **Estrutura de dados principal nº 1.** Registra cronologicamente as pistas que o jogador coletou. É o "histórico da investigação".
+> **Estrutura de dados nº 1.** Registra cronologicamente todas as pistas coletadas pelo jogador — é o "histórico da investigação".
 
-Cada vez que o jogador escolhe uma pista, ela é adicionada ao final da lista com `inserirPista(id)`. No final do jogo, `imprimirHistorico()` exibe algo como:
+Cada escolha do jogador é adicionada ao final da lista com `inserirPista(id)`. Ao exibir o relatório, `imprimirHistorico()` mostra:
 
 ```
 [faca] -> [impressao_digital] -> [suspeito_capturado] -> FIM
 ```
 
-**⚠️ Ponto de atenção — `contemPista(String id)`:** Este método percorre a lista nó por nó e retorna `true` se a pista de ID informado já foi coletada. Ele existe para que a `Arvore` possa fazer sua verificação **sem precisar enxergar a estrutura interna da lista**. A `Arvore` apenas pergunta: *"o jogador já tem a pista X?"* e recebe um `boolean`. Simples e fechado.
+**Por que `contemPista(String id)` existe:** A `Arvore` precisa saber se o jogador já coletou determinada pista antes de liberar as próximas. Em vez de receber a lista inteira e navegar por ela mesma, a `Arvore` simplesmente pergunta à lista: *"você contém essa pista?"* e recebe um `boolean`. As duas estruturas permanecem independentes.
 
 | Método | O que faz |
 |---|---|
-| `inserirPista(String id)` | Cria um `NoLista` com o id e o adiciona no fim da lista. |
+| `inserirPista(String id)` | Cria um `NoLista` com o id e adiciona no fim da lista. |
 | `contemPista(String id)` | Percorre a lista e retorna `true` se o id foi encontrado. |
-| `toArray()` | Retorna todas as pistas como array — útil para o relatório. |
-| `imprimirHistorico()` | Percorre a lista e imprime no formato visual `A -> B -> C -> FIM`. |
+| `imprimirHistorico()` | Imprime todas as pistas no formato `A -> B -> C -> FIM`. |
 
 ---
 
 ### `Arvore` e `NoArvore`
-> **Estrutura de dados principal nº 2.** É o "gabarito" do caso. Define quais pistas existem, quais dependem de quais, e qual é o caminho correto até a solução.
+> **Estrutura de dados nº 2.** É o gabarito do caso. Define quais pistas existem, quais dependem de quais, e qual é o caminho correto.
 
-Cada `NoArvore` guarda uma `Pista` e uma lista de filhos. A raiz da árvore é a pista inicial disponível para todos. Os filhos só ficam acessíveis se a pista do nó pai já foi coletada.
+Cada `NoArvore` guarda uma `Pista` e uma lista de filhos. Os filhos de um nó só ficam acessíveis se a pista do nó pai já foi coletada. Exemplo de como o gabarito é estruturado:
 
 ```
-Raiz: [Cena 1] "Corpo encontrado"
-├── NÓ: Pista "faca" (sempre visível na cena 1)
-│   ├── NÓ: Pista "impressao_digital"   ← só aparece se "faca" foi coletada
-│   └── NÓ: Pista "marca_de_bota"       ← leva ao caminho errado
-└── NÓ: Pista "janela_arrombada" (sempre visível na cena 1)
-    └── NÓ: Pista "fibra_de_tecido"     ← outro caminho errado
+Raiz (nó inicial, sem pista)
+├── NÓ: "faca"
+│   ├── NÓ: "impressao_digital"   ← caminho correto → leva à vitória
+│   └── NÓ: "marca_de_bota"       ← caminho errado → Game Over
+└── NÓ: "janela_arrombada"
+    └── NÓ: "fibra_de_tecido"     ← caminho errado → Game Over
 ```
+
+**Como o `getPistasDisponiveis()` funciona:** A `Arvore` percorre todos os seus nós e, para cada um, pergunta à `ListaEncadeada` se o nó pai já foi coletado. Se sim, a pista daquele nó entra na lista de disponíveis. O `Jogo` usa essa lista para montar o menu de cada cena — o menu é montado dinamicamente pelas estruturas, sem lógica hardcoded no `Jogo`.
 
 | Método | O que faz |
 |---|---|
-| `inserirDependencia(String idPai, Pista filha)` | Encontra o nó com `idPai` na árvore (via `buscarNo`) e adiciona `filha` como filho dele. É assim que o gabarito é montado dentro de `Jogo.iniciar()`. |
-| `verificarAcesso(String idPista, ListaEncadeada historico)` | Checa se o jogador pode coletar a pista de id `idPista` — ou seja, se o nó pai dela já está em `historico`. Usa `historico.contemPista()` para isso. |
-| `getPistasDisponiveis(ListaEncadeada historico)` | Percorre a árvore e retorna uma lista de todas as `Pista`s cujos pais já estão no histórico. O `Jogo` usa isso para montar o menu de escolhas de cada cena. |
-| `buscarNo(String id)` *(privado)* | Busca recursivamente na árvore o nó com o `id` informado. É usado internamente por `inserirDependencia`. Sem ele, é impossível construir a árvore corretamente. |
+| `inserirDependencia(String idPai, Pista filha)` | Localiza o nó `idPai` na árvore via `buscarNo()` e adiciona `filha` como filho. É assim que o gabarito é montado em `iniciar()`. |
+| `getPistasDisponiveis(ListaEncadeada historico)` | Retorna todas as pistas cujo nó pai já está no histórico. Encapsula também a validação de acesso — não existe método `verificarAcesso` separado. |
+| `buscarNo(String id)` *(privado)* | Busca recursivamente o nó com o `id` informado. Usado internamente por `inserirDependencia`. |
 
 ---
 
-## 4. A Interação Central (Por Que Isso Funciona)
+## 4. O Relatório Final
 
-O momento mais importante do jogo — e o mais relevante para a nota — é quando o `Jogo` chama `getPistasDisponiveis()`. Veja o que acontece internamente:
+O requisito da matéria exige que o sistema **demonstre o resultado final dos dados em forma de relatório**. O método `imprimirRelatorio(boolean venceu)` no `Jogo` é responsável por isso.
+
+Ele deve exibir um bloco formatado ao final de cada partida — tanto na vitória quanto na derrota:
 
 ```
-Jogo pergunta: "Quais pistas estão disponíveis agora?"
-    ↓
-Arvore percorre seus nós
-    ↓
-Para cada nó, pergunta à ListaEncadeada: "Você contém o pai deste nó?"
-    ↓
-ListaEncadeada percorre seus nós e responde: "Sim" ou "Não"
-    ↓
-Arvore monta a lista de pistas disponíveis e devolve para o Jogo
-    ↓
-Jogo exibe o menu para o jogador
+============================================
+         RELATÓRIO DE INVESTIGAÇÃO
+============================================
+Detetive : Andre
+Tentativas: 2
+
+Caminho percorrido:
+  [faca] -> [marca_de_bota] -> FIM
+
+Resultado : CASO NÃO RESOLVIDO
+A pista "marca_de_bota" levou a um beco sem saída.
+O caminho correto passava por "impressao_digital".
+============================================
 ```
 
-As **duas estruturas de dados trabalhando juntas**, de forma independente e com responsabilidades claras. É exatamente isso que o professor quer ver.
+Em caso de vitória:
+```
+============================================
+         RELATÓRIO DE INVESTIGAÇÃO
+============================================
+Detetive : Andre
+Tentativas: 1
+
+Caminho percorrido:
+  [faca] -> [impressao_digital] -> [suspeito_capturado] -> FIM
+
+Resultado : CASO RESOLVIDO — Suspeito identificado!
+============================================
+```
+
+O relatório usa exclusivamente os dados já armazenados nas estruturas:
+- **Nome do jogador** → `nomeJogador` (armazenado no `Jogo` após o login)
+- **Tentativas** → `tentativas` (incrementado a cada `reiniciar()`)
+- **Caminho percorrido** → `historico.imprimirHistorico()` (a `ListaEncadeada` em ação)
+- **Resultado e análise** → lógica do `Jogo` com base no último nó alcançado na `Arvore`
 
 ---
 
 ## 5. Divisão de Tarefas — Final de Semana
 
 ### Módulo 1 — Estruturas de Dados (Desenvolvedor A)
-**Arquivos:** `NoLista.java`, `ListaEncadeada.java`, `NoArvore.java`, `Arvore.java`, `Pista.java`
+**Arquivos:** `Pista.java`, `NoLista.java`, `ListaEncadeada.java`, `NoArvore.java`, `Arvore.java`
 
-- Implementar `NoLista` e `ListaEncadeada` com todos os métodos da seção 3.
+- Implementar `Pista` (só atributos e construtor).
+- Implementar `NoLista` e `ListaEncadeada` com todos os métodos listados na seção 3.
 - Implementar `NoArvore` e `Arvore`, incluindo o método **privado** `buscarNo()`.
-- Implementar `Pista` (simples — só atributos e construtor).
-- Testar localmente: criar uma `ListaEncadeada`, inserir 3 pistas, confirmar que `contemPista()` funciona. Criar uma `Arvore`, inserir dependências e confirmar que `getPistasDisponiveis()` retorna os nós certos.
+- Testar localmente antes de subir no repositório: inserir pistas na lista e confirmar que `contemPista()` funciona; montar uma árvore pequena e confirmar que `getPistasDisponiveis()` retorna os nós corretos.
 
-**Prazo:** Sábado de manhã. Ao terminar, disponibilizar os arquivos no repositório para que Dev B e Dev C possam integrá-los.
+**Prazo:** Sábado de manhã.
 
 ---
 
 ### Módulo 2 — Motor do Jogo e Narrativa (Desenvolvedor B)
 **Arquivos:** `Jogo.java`
 
-- Escrever o roteiro: textos das 3 cenas e descrições das 5+ pistas (esses textos vão para os objetos `Pista`).
-- Dentro de `iniciar()`, montar a `Arvore` chamando `inserirDependencia()` — este é o gabarito do caso.
+- Escrever o roteiro: textos das 3 cenas e descrições das pistas (vão para os objetos `Pista`).
+- Dentro de `iniciar()`, montar a `Arvore` com `inserirDependencia()` — este é o gabarito do caso.
 - Implementar `rodarCenas()`, `verificarGameOver()`, `reiniciar()` e `imprimirRelatorio()`.
-- **Dev B não toca em `Scanner` ou `System.out` diretamente** — usa sempre `terminal.lerEntrada()` e `terminal.exibir()`.
+- Não usar `Scanner` ou `System.out.println` diretamente — sempre `terminal.lerEntrada()` e `terminal.exibir()`.
 
-**Prazo:** Sábado de manhã (narrativa e estrutura do loop). Integração no Sábado à tarde com Dev A e C.
+**Prazo:** Sábado de manhã (narrativa e estrutura do loop). Integração no Sábado à tarde.
 
 ---
 
 ### Módulo 3 — Interface, IO e Scripts (Desenvolvedor C)
-**Arquivos:** `Terminal.java`, `Main.java` + arquivos `.txt` em `test_inputs/`
+**Arquivos:** `Terminal.java`, `Main.java`, `test_inputs/vitoria.txt`, `test_inputs/derrota.txt`
 
-- Implementar `Terminal`: se receber um caminho de arquivo no construtor, o `Scanner` lê do arquivo; se receber `null`, lê de `System.in`. Isso é feito uma vez e nunca mais precisa mudar.
-- Implementar `Main`: receber o argumento `args[0]` (se existir), criar `Terminal` e `Jogo`, chamar `iniciar()`.
-- Criar os scripts de teste em `test_inputs/`: um arquivo `vitoria.txt` com a sequência de escolhas que leva à vitória e um `derrota.txt` com uma sequência que leva ao Game Over.
+- Implementar `Terminal` conforme descrito na seção 3.
+- Implementar `Main`: ler `args[0]` (se existir), criar `Terminal` e `Jogo`, chamar `iniciar()`.
+- Criar os arquivos de script: `vitoria.txt` com a sequência correta e `derrota.txt` com uma sequência incorreta.
 
-**Prazo:** Sábado de manhã — **o script de teste deve estar pronto antes da integração**, para que toda a equipe possa testar sem digitar nada.
+**Prazo:** Sábado de manhã — **os scripts de teste devem estar prontos antes da integração** para que toda a equipe valide o jogo sem digitar nada.
 
 ---
 
 ### Integração e Testes (Todos Juntos)
 
 **Sábado à tarde:**
-1. Dev A entrega as estruturas de dados no repositório.
-2. Dev B e C integram as classes na `Main` e no `Jogo`.
+1. Dev A entrega as estruturas no repositório.
+2. Dev B e C integram na `Main` e no `Jogo`.
 3. Rodar `java Main test_inputs/vitoria.txt` e `java Main test_inputs/derrota.txt` para validar o fluxo completo.
-4. Corrigir bugs encontrados nos testes automatizados.
+4. Corrigir os bugs encontrados.
 
 **Domingo:**
-- Garantir estabilidade do `reiniciar()` (jogar, perder, reiniciar, jogar de novo).
-- Polir os textos exibidos no terminal (arte ASCII, separadores visuais, mensagens de Game Over).
-- Ensaiar a apresentação usando o modo automatizado (`vitoria.txt`).
+- Garantir estabilidade do `reiniciar()` — jogar, perder, reiniciar, jogar de novo.
+- Polir a apresentação visual no terminal (separadores, arte ASCII, mensagens de Game Over).
+- Ensaiar a apresentação usando o modo automatizado.
