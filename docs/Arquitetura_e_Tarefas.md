@@ -1,75 +1,66 @@
-# Arquitetura do Sistema e Divisão de Tarefas
+# Arquitetura e Plano de Ação: Hackathon de Fim de Semana
 
-O projeto é um Jogo Investigativo em texto focado no uso de **Lista Encadeada** e **Árvore** em Java. Como solicitado, abaixo está o detalhamento da arquitetura e a divisão do desenvolvimento em etapas para uma equipe de 3 pessoas.
-
----
-
-## 1. Arquitetura do Projeto
-
-O sistema será construído usando uma arquitetura modular com separação de responsabilidades (baseado no padrão MVC simplificado para terminal):
-
-### Camadas Principais
-
-1. **`model` (Modelos de Dados)**
-   - `Evidence` (Pista/Evidência): Classe base contendo `id`, `name`, `description`, `isCorrect` (se faz parte do caminho ideal).
-   - `Scene` (Cena): Representa cada etapa do jogo (3 a 5 cenas). Contém uma narrativa inicial e um conjunto de evidências que podem ser coletadas nessa cena.
-   - `User` (Usuário): Para o sistema de login (apenas nome e um controle simples de ID).
-
-2. **`datastructures` (Estruturas de Dados Customizadas)**
-   - **`Tree` e `TreeNode`**: Mapeia a hierarquia lógica. A Árvore determina se uma evidência (Nó filho) está disponível com base em o jogador ter ou não coletado as evidências anteriores (Nó pai). 
-   - **`LinkedList` e `Node`**: Mantém o Histórico Investigativo. Toda vez que o jogador seleciona uma pista, ela é adicionada (append) na Lista. No final, iteramos por essa lista para cruzar com a Árvore e ver se o caminho foi o Correto.
-
-3. **`engine` (Lógica e Regras do Jogo)**
-   - `GameController`: Gerencia o fluxo principal. Inicializa as Cenas, popula a Árvore de dependências (o gabarito), e controla o Loop principal do jogo.
-   - `InputManager`: Lê entradas (seja do `Scanner` do console ou de um Arquivo de script automatizado).
-   - `ReportGenerator`: Avalia a `LinkedList` do jogador em comparação com a `Tree`. Se errar, renderiza no terminal visualmente onde o jogador desviou do caminho e reseta o jogo.
-
-4. **`auth` (Autenticação)**
-   - `LoginSystem`: Pede o nome/usuário no início e mantém o registro da sessão.
-
-5. **`Main`**
-   - O ponto de entrada. Invoca o `LoginSystem`, em seguida passa o controle para o `GameController`.
+Como o prazo é um único final de semana, a equipe tem conhecimentos básicos (2º período de ADS) e fará **uso intenso de Inteligência Artificial**, precisamos de um plano extremamente pragmático. Não podemos gastar tempo com over-engineering (arquitetura muito complexa). O foco é fazer funcionar e atender aos requisitos da matéria (Lista Encadeada, Árvore, Sistema no Terminal).
 
 ---
 
-## 2. Divisão do Desenvolvimento para 3 Pessoas (Etapas)
+## 1. Arquitetura Simplificada (Para IA entender fácil)
 
-Dividimos as responsabilidades em 3 Perfis: **Pessoa A (Estruturas de Dados)**, **Pessoa B (Lógica e Arquitetura do Jogo)** e **Pessoa C (Autenticação, Fluxo de IO e Relatórios)**.
+O sistema terá poucas classes, todas diretas e fáceis de pedir para a IA gerar.
 
-### Etapa 1: Fundação (Semana 1)
-- **Pessoa A:**
-  - Implementar as classes genéricas `LinkedList` e `Node`.
-  - Escrever pequenos testes (na `main` ou usando JUnit básico) para garantir `add()`, `remove()`, `print()`, `size()`.
-- **Pessoa B:**
-  - Criar os Modelos: `Evidence`, `Scene` e `User`.
-  - Começar o esqueleto do `GameController` (ainda sem a lógica complexa).
-- **Pessoa C:**
-  - Implementar o `LoginSystem`.
-  - Estruturar a leitura de dados do teclado (`Scanner`) no `InputManager` de forma que possa ser reaproveitada.
+1. **`Estruturas` (Obrigatório para a nota)**
+   - `ListaHistorico`: Uma classe de Lista Encadeada Simples com os métodos `adicionar(String pista)` e `imprimirHistorico()`.
+   - `ArvoreGabarito`: Uma classe de Árvore (onde cada nó tem N filhos) com os métodos `adicionarPista()` e `verificarSePistaEstaLiberada()`.
 
-### Etapa 2: Core e Lógica Estrutural (Semana 2)
-- **Pessoa A:**
-  - Implementar as classes `Tree` e `TreeNode`.
-  - Criar o método de busca na árvore (`find()`, `getChildren()`) que servirá para validar se uma pista pode ser revelada no momento.
-- **Pessoa B:**
-  - Integrar a `Tree` dentro do `GameController`: Criar a árvore de pistas "gabarito" do caso investigativo.
-  - Criar o texto das 3 a 5 cenas.
-- **Pessoa C:**
-  - Criar a leitura de "Entradas Automatizadas". Um método no `InputManager` que lê de um arquivo `.txt` os passos simulando um jogador (ex: "1, 3, 2").
-  - Testar o login automatizado.
+2. **`Jogo` (Onde tudo acontece)**
+   - `Pista`: Objeto simples (id, textoDaPista).
+   - `SistemaTexto`: Classe responsável por dar os prints na tela, ler dados (`Scanner`) e fazer o "Login" fake.
+   - `Main`: Classe principal que amarra as estruturas e roda um `while (jogoRodando)` (Loop do Jogo).
 
-### Etapa 3: Integração e Gameplay (Semana 3)
-- **Pessoa A & B:**
-  - Trabalhar juntas no Loop do Jogo no `GameController`: A cada cena, verificar na `Tree` quais pistas estão liberadas, mostrar pro jogador e adicionar a escolha na `LinkedList` do jogador.
-- **Pessoa C:**
-  - Começar a estruturar o `ReportGenerator`: Como imprimir de forma amigável no console o percurso que está armazenado na `LinkedList`.
+---
 
-### Etapa 4: Validação, Resets e Finalização (Semana 4)
-- **Pessoa A:**
-  - Otimizar a árvore e ajudar na lógica de validação do caminho percorrido.
-- **Pessoa B:**
-  - Finalizar as condições de vitória e derrota: Se a pista adicionada levar a uma contradição (nó folha errado na Árvore), acionar o "Game Over" e o reinício automático.
-- **Pessoa C:**
-  - Polir a Interface no Terminal (arte ASCII, limpar a tela).
-  - Integrar o `ReportGenerator` na condição de derrota, renderizando visualmente o caminho do jogador até o ponto de falha.
-  - Garantir que a apresentação do professor possa ser feita de forma 100% automatizada lendo um script de arquivo.
+## 2. Roteiro do Final de Semana para 3 Pessoas (A, B e C)
+
+A chave para programar com IA em grupo é a **divisão clara de arquivos** para evitar conflitos no Git e problemas de integração de código. Cada um será "dono" de uma parte.
+
+### Sábado - Manhã: Fundação (Prompting Inicial)
+
+- **Pessoa A (Dona das Estruturas 1 - Lista):**
+  - **Tarefa:** Gerar a Lista Encadeada do zero.
+  - **Uso de IA:** Pedir para a IA: *"Crie uma classe em Java de Lista Encadeada simples chamada ListaHistorico que armazena Strings. Preciso dos métodos adicionar e imprimir a lista toda formatada bonitinha para um jogo no terminal."*
+- **Pessoa B (Dona das Estruturas 2 - Árvore):**
+  - **Tarefa:** Gerar a Árvore Genérica.
+  - **Uso de IA:** Pedir para a IA: *"Crie uma Árvore em Java chamada ArvoreGabarito onde cada Nó armazena o ID de uma pista (String ou int) e pode ter múltiplos filhos (List<No>). Faça um método para inserir um nó e outro para verificar se um nó específico existe."*
+- **Pessoa C (Dona da Interface e IO):**
+  - **Tarefa:** Fazer o sistema de Login, os Menus no terminal e leitura de texto.
+  - **Uso de IA:** Pedir para a IA: *"Crie uma classe Java com Scanner para um jogo de terminal. Ela deve pedir o nome de usuário (login fake), dar boas vindas e ter um método que permite ler um arquivo .txt e simular os inputs para automatizar testes."*
+
+### Sábado - Tarde: Integração (O "Frankenstein")
+
+Neste momento, vocês juntam o código. A Pessoa C (ou quem tiver mais facilidade com o Git) puxa o código de A e B.
+
+- **Trabalho em Conjunto:**
+  - Criar a classe `Main`.
+  - Construir o cenário do jogo "hardcoded" (chumbado no código). Exemplo: A pista "faca" só libera a pista "impressao_digital". 
+  - **Uso de IA:** Mandar as 3 classes (Lista, Arvore, Scanner) para a IA e pedir: *"Integre esses 3 códigos. O jogador começa no menu, depois entra no loop de 3 cenas. A cada cena ele escolhe uma pista, nós adicionamos na ListaHistorico e verificamos na ArvoreGabarito se ele podia pegar aquela pista."*
+
+### Domingo - Manhã: A Lógica de Falha e Reset (Regras de Negócio)
+
+- **Pessoa A:** 
+  - Trabalhar na lógica visual (prints ASCII) de quando o jogador perde. Usar a IA para gerar os desenhos.
+- **Pessoa B & C:** 
+  - Consertar os bugs do loop do jogo de sábado. Garantir que, se o cara escolher a evidência na ordem errada (que não bate com a Árvore), o jogo dê "Game Over", mostre a Lista Encadeada de onde ele errou, e reinicie.
+
+### Domingo - Tarde: O Gran Finale (Modo de Apresentação)
+
+- **Todos Juntos:** 
+  - Finalizar o requisito de *"dados de entrada de forma automatizada"*.
+  - Usar a IA para criar 2 arquivos `.txt`: um com a sequência VENCEDORA e outro com a sequência PERDEDORA.
+  - Redirecionar o Scanner para ler esses arquivos. Assim, na hora de apresentar pro professor, vocês só apertam 1 botão e o jogo joga sozinho, provando que a Lista e a Árvore funcionam!
+  - Revisar se o código não tem coisas estranhas criadas pela IA (nomes de variáveis em inglês e português misturados, coisas muito complexas do Java avançado que o professor desconfiaria).
+
+---
+
+## 3. Dica de Ouro para o Grupo
+
+Sempre que a IA der um código que vocês não entenderem 100%, peçam: *"Me explique esse método como se eu estivesse no 2º período da faculdade de programação, para eu saber explicar para o meu professor."*
