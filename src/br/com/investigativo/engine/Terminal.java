@@ -10,7 +10,6 @@ public class Terminal {
     private Scanner scanner;
     private BufferedReader leitorArquivo;
 
-    // Se arquivoInput for null, lê do teclado; senão, lê do arquivo linha a linha
     public Terminal(String arquivoInput) {
         if (arquivoInput != null) {
             try {
@@ -24,20 +23,30 @@ public class Terminal {
         }
     }
 
-    // Retorna a próxima linha — do teclado ou do arquivo, de forma transparente
     public String lerEntrada() {
-        // TODO: se leitorArquivo != null, ler do arquivo; senão, ler do scanner
-        throw new UnsupportedOperationException("lerEntrada() não implementado ainda");
+        if (leitorArquivo != null) {
+            try {
+                String linha = leitorArquivo.readLine();
+                if (linha != null) {
+                    System.out.println(linha);
+                    return linha;
+                }
+            } catch (IOException e) {
+                System.err.println("Erro ao ler do arquivo: " + e.getMessage());
+            }
+        }
+        return scanner.nextLine();
     }
 
-    // Imprime texto na tela
     public void exibir(String texto) {
         System.out.println(texto);
     }
 
-    // Pede o nome do jogador e retorna como String
     public String loginUsuario() {
-        // TODO: exibir mensagem pedindo o nome e chamar lerEntrada()
-        throw new UnsupportedOperationException("loginUsuario() não implementado ainda");
+        exibir("=======================================");
+        exibir("       SISTEMA DE INVESTIGAÇÃO         ");
+        exibir("=======================================");
+        exibir("Por favor, identifique-se:");
+        return lerEntrada();
     }
 }
