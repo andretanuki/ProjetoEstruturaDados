@@ -33,3 +33,12 @@ build/
 
 # Dados de persistência gerados em runtime
 dados/
+
+# Feedback não deve ser commitado
+frontend_feedback.md
+
+# Plano de prompts de uso pessoal — não deve ser commitado
+prompts.md
+
+# Ignorar todos os arquivos Markdown
+*.md

@@ -15,17 +15,49 @@ public class Arvore {
 
     // Localiza o nó com idPai e adiciona filha como seu filho
     public void inserirDependencia(String idPai, Pista filha) {
-        // TODO: usar buscarNo(idPai) para encontrar o nó pai e adicionar filha à lista de filhos
-        // Caso especial: idPai == null significa que filha é filha direta da raiz
-        throw new UnsupportedOperationException("inserirDependencia() não implementado ainda");
+        if (idPai == null) {
+            raiz.filhos.add(new NoArvore(filha));
+            return;
+        }
+        NoArvore pai = buscarNo(idPai);
+        pai.filhos.add(new NoArvore(filha));
     }
 
     // Retorna todas as pistas cujo nó pai já está no histórico do jogador
     public List<Pista> getPistasDisponiveis(ListaEncadeada historico) {
-        // TODO: percorrer todos os nós da árvore; para cada nó, verificar se seu pai está
-        //       no histórico via historico.contemPista(idPai) — se sim, adicionar à lista
-        // Filhos diretos da raiz ficam sempre disponíveis (sem pré-requisito)
-        throw new UnsupportedOperationException("getPistasDisponiveis() não implementado ainda");
+        List<Pista> disponiveis = new ArrayList<>();
+        coletarDisponiveis(raiz, historico, disponiveis);
+        return disponiveis;
+    }
+
+    // Percorre recursivamente a árvore: os filhos de um nó só entram na lista
+    // se o próprio nó já estiver no histórico (a raiz sentinela sempre "está",
+    // liberando seus filhos diretos sem pré-requisito)
+    //
+    // Uma pista com mais de um pré-requisito é cadastrada como mais de um
+    // NoArvore com o mesmo id (um sob cada pai) — por isso a checagem de
+    // "já está na lista" abaixo evita que ela apareça duplicada no menu
+    // quando os dois pré-requisitos já estiverem no histórico.
+    private void coletarDisponiveis(NoArvore no, ListaEncadeada historico, List<Pista> disponiveis) {
+        boolean noAtualColetado = (no == raiz) || historico.contemPista(no.pista.id);
+        if (!noAtualColetado) {
+            return;
+        }
+        for (NoArvore filho : no.filhos) {
+            if (!historico.contemPista(filho.pista.id) && !contemId(disponiveis, filho.pista.id)) {
+                disponiveis.add(filho.pista);
+            }
+            coletarDisponiveis(filho, historico, disponiveis);
+        }
+    }
+
+    private boolean contemId(List<Pista> pistas, String id) {
+        for (Pista p : pistas) {
+            if (p.id.equals(id)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Busca recursiva — retorna o nó com o id informado, ou null se não encontrar
@@ -33,19 +65,29 @@ public class Arvore {
         // ATENÇÃO — RISCO DE BUG: a busca começa nos filhos da raiz sentinela, não na raiz em si
         // (a raiz não tem pista, então comparar raiz.pista.id causaria NullPointerException).
         // Sempre delegar para buscarNoRecursivo a partir dos filhos de raiz.
-        throw new UnsupportedOperationException("buscarNo() não implementado ainda");
+        for (NoArvore filho : raiz.filhos) {
+            NoArvore encontrado = buscarNoRecursivo(filho, id);
+            if (encontrado != null) {
+                return encontrado;
+            }
+        }
+        return null;
     }
 
     // Auxiliar recursivo para buscarNo
     private NoArvore buscarNoRecursivo(NoArvore atual, String id) {
-        // TODO: comparar atual.pista.id com id — se igual, retornar atual
-        //       senão, iterar sobre atual.filhos e chamar buscarNoRecursivo em cada um
-        //       se algum retorno não for null, é o resultado — retornar ele
-        //       se nenhum filho encontrou, retornar null
-        //
         // ATENÇÃO — RISCO DE BUG: não use == para comparar Strings em Java.
         // Use atual.pista.id.equals(id), não atual.pista.id == id.
         // O == compara referência de objeto, não conteúdo — pode falhar silenciosamente.
-        throw new UnsupportedOperationException("buscarNoRecursivo() não implementado ainda");
+        if (atual.pista.id.equals(id)) {
+            return atual;
+        }
+        for (NoArvore filho : atual.filhos) {
+            NoArvore encontrado = buscarNoRecursivo(filho, id);
+            if (encontrado != null) {
+                return encontrado;
+            }
+        }
+        return null;
     }
 }

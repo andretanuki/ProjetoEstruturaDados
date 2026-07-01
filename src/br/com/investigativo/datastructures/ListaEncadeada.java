@@ -10,32 +10,59 @@ public class ListaEncadeada {
 
     // Adiciona a pista no fim da lista
     public void inserirPista(String id) {
-        // TODO: criar um NoLista com o id e encadear no final
-        throw new UnsupportedOperationException("inserirPista() não implementado ainda");
+        NoLista novo = new NoLista(id);
+        if (inicio == null) {
+            inicio = novo;
+            return;
+        }
+        NoLista atual = inicio;
+        while (atual.proximo != null) {
+            atual = atual.proximo;
+        }
+        atual.proximo = novo;
     }
 
     // Retorna true se a pista com esse id já foi coletada
     public boolean contemPista(String id) {
-        // TODO: percorrer a lista a partir de 'inicio' e comparar ids
-        //
-        // ATENÇÃO — RISCO DE BUG: não use == para comparar Strings em Java.
-        // Use atual.idPista.equals(id), não atual.idPista == id.
-        // O == compara referência de objeto — pode retornar false mesmo quando os
-        // valores são idênticos, e o bug não aparece nenhuma mensagem de erro.
-        throw new UnsupportedOperationException("contemPista() não implementado ainda");
+        NoLista atual = inicio;
+        while (atual != null) {
+            if (atual.idPista.equals(id)) {
+                return true;
+            }
+            atual = atual.proximo;
+        }
+        return false;
     }
 
     // Retorna todas as pistas coletadas como array (usado pelo Jogo antes de reiniciar)
     public String[] toArray() {
-        // TODO: primeiro percorrer a lista contando os nós para saber o tamanho do array,
-        //       depois percorrer de novo copiando os ids para o array
-        //       (Java não permite criar array com tamanho desconhecido em tempo de compilação)
-        throw new UnsupportedOperationException("toArray() não implementado ainda");
+        int tamanho = 0;
+        NoLista atual = inicio;
+        while (atual != null) {
+            tamanho++;
+            atual = atual.proximo;
+        }
+
+        String[] ids = new String[tamanho];
+        atual = inicio;
+        int indice = 0;
+        while (atual != null) {
+            ids[indice] = atual.idPista;
+            indice++;
+            atual = atual.proximo;
+        }
+        return ids;
     }
 
     // Imprime no formato: [faca] -> [impressao_digital] -> FIM
     public void imprimirHistorico() {
-        // TODO: percorrer a lista e imprimir cada idPista no formato acima
-        throw new UnsupportedOperationException("imprimirHistorico() não implementado ainda");
+        StringBuilder sb = new StringBuilder();
+        NoLista atual = inicio;
+        while (atual != null) {
+            sb.append("[").append(atual.idPista).append("] -> ");
+            atual = atual.proximo;
+        }
+        sb.append("FIM");
+        System.out.println(sb.toString());
     }
 }
