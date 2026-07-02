@@ -54,8 +54,9 @@ public class ListaEncadeada {
         return ids;
     }
 
-    // Imprime no formato: [faca] -> [impressao_digital] -> FIM
-    public void imprimirHistorico() {
+    // Formata o histórico no padrão "[a] -> [b] -> FIM"; exibir é
+    // responsabilidade do chamador (no jogo, via Terminal.exibir()).
+    public String formatarHistorico() {
         StringBuilder sb = new StringBuilder();
         NoLista atual = inicio;
         while (atual != null) {
@@ -63,6 +64,11 @@ public class ListaEncadeada {
             atual = atual.proximo;
         }
         sb.append("FIM");
-        System.out.println(sb.toString());
+        return sb.toString();
+    }
+
+    // Mantida por conformidade com a API documentada; o jogo usa formatarHistorico().
+    public void imprimirHistorico() {
+        System.out.println(formatarHistorico());
     }
 }

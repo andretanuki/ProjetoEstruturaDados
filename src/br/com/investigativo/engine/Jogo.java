@@ -6,7 +6,9 @@ import br.com.investigativo.model.Pista;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class Jogo {
 
@@ -18,44 +20,23 @@ public class Jogo {
     private int tentativas;
     private List<String[]> todosCaminhos;
 
-    // Textos fixos das 5 cenas e as pistas "normais" que cada uma oferece
-    // (não cumulativas — cada cena mostra só a sua própria lista).
-    //
-    // As pistas se dividem em três papéis:
-    //
-    //  (a) CAMINHO DA VITÓRIA — 2 pré-requisitos geridos pela Arvore
-    //      ("cracha" -> "camera") mais a pista final "celular_esquecido"
-    //      (a evidência que resolve o caso), que SÓ aparece na Cena 5 e só
-    //      fica disponível quando cracha+camera já estão no histórico. As
-    //      pistas-chave continuam aparecendo como opção nas cenas seguintes
-    //      (transbordo) até serem coletadas — cracha até a C3, camera até a
-    //      C4 — o que já coincide com o limite em que pegá-las ainda leva à
-    //      vitória (sem precisar de cálculo dinâmico de viabilidade).
-    //
-    //  (b) AUXILIARES VERDADEIRAS — pistas reais que enriquecem a história
-    //      mas NÃO são necessárias para vencer. Coletar todas elas concede a
-    //      badge "Venceu com Excelência" no relatório final.
-    //
-    //  (c) DISTRAÇÕES — pistas cujo texto se auto-descarta (álibi,
-    //      impossibilidade, irrelevância).
+    // Roteiro fixo: papéis das pistas e regras do menu em docs/Notas_de_Design.md.
     private String[] textosCenas;
     private String[][] pistasPorCena;
+    // Separador visual impresso antes de cada cena.
+    private static final String SEPARADOR_CENA =
+        "  ════════════════════════════════════════════════════════════════════";
+    // Moldura do bloco ☎ TELEFONE — usada nas cenas e nos epílogos.
+    private static final String MOLDURA_TOP =
+        "  .----------------------------- ☎ TELEFONE -----------------------------.";
+    private static final String MOLDURA_BOT =
+        "  '----------------------------------------------------------------------'";
+    // Caminho da vitória: PRE_REQUISITOS na ordem, fechando com PISTA_FINAL.
     private static final String PISTA_FINAL = "celular_esquecido";
-    // Pré-requisitos obrigatórios, na ordem do caminho (a final é liberada
-    // quando todos estes estão no histórico). Caminho ENCURTADO para 2
-    // pré-requisitos + a final (3 coletas no total) — permite vencer mesmo
-    // pegando cracha só na Cena 3 (cracha C3 -> camera C4 -> final C5).
     private static final String[] PRE_REQUISITOS = {"cracha", "camera"};
-    // Auxiliares opcionais que concedem a badge de excelência (não entram no
-    // caminho obrigatório — registro_saida saiu dos pré-requisitos ao encurtar):
-    private static final String[] AUXILIARES = {"registro_saida", "testemunho_zelador", "extrato_bancario"};
-
-    // Finais malucos: cada trilha é pai -> filho -> neto na Arvore. Coletar
-    // a 3ª pista (neta) só é possível gastando 3 escolhas na trilha, o que
-    // torna matematicamente impossível ter completado a vitória séria (4
-    // coletas) — por isso a neta no histórico já prova derrota no caso sério.
-    // A neta de cada trilha SUBSTITUI uma distração da cena quando disponível
-    // (ver rodarCenas()), preservando o piso de 4 sem inflar o menu.
+    // Dupla que, coletada junto com a vitória, concede a badge de excelência.
+    private static final String[] AUXILIARES = {"registro_saida", "testemunho_zelador"};
+    // Netas das trilhas malucas: tê-las no histórico define o desfecho alternativo.
     private static final String NETA_ABDUCAO = "luz_estranha";
     private static final String NETA_LOUCURA = "mural_conspiracao";
 
@@ -86,54 +67,20 @@ public class Jogo {
         rodarCenas();
     }
 
-    // Monta o roteiro do caso: desaparecimento do pesquisador Dr. Almeida no
-    // Laboratório de Bioquímica da universidade.
-    //
-    // O jogo tem 5 cenas de TEXTO FIXO — o roteiro não muda entre partidas.
-    // O que muda é só quais pistas o jogador escolhe destacar em cada cena.
-    //
-    // Enredo: o caminho da vitória tem 3 coletas —
-    // "cracha" -> "camera" -> "celular_esquecido" (a evidência final).
-    // cracha e camera são nativos das Cenas 1 e 2, mas continuam aparecendo
-    // como opção (transbordo) nas cenas seguintes até serem coletados, para
-    // não deixar o jogo perdido sem o jogador perceber. O celular_esquecido
-    // só fica disponível na Cena 5, quando cracha+camera já estão no
-    // histórico.
-    //
-    // O "corte" (parar de oferecer uma pista-chave quando pegá-la já não
-    // levaria à vitória) é resolvido pela DISTRIBUIÇÃO das listas por cena:
-    // cracha transborda até a C3, camera até a C4 — exatamente o limite em
-    // que ainda dá tempo de chegar ao celular na C5. Não há cálculo dinâmico.
+    // Monta o roteiro do caso (desaparecimento do Dr. Almeida): árvore de
+    // dependências, textos das pistas/cenas e listas de pistas por cena.
     private void montarGabarito() {
-        // ================================================================
-        // ÁRVORE DE DEPENDÊNCIAS — todas as pistas são nós da Arvore.
-        // As 3 REGRAS SUPREMAS (ver Instrucoes_Claude_UX.md):
-        //  (1) PISO DE 4: cada cena tem >= 4 pistas filhas DIRETAS da raiz
-        //      (distrações sem pré-requisito), garantindo menu nunca < 4.
-        //  (2) TRANSBORDO: pistas-chave da trilha séria (cracha, camera)
-        //      são repetidas nas listas de cenas seguintes até serem
-        //      coletadas — assim o jogador atrasado ainda as encontra.
-        //  (3) MENU FILTRADO: o menu só oferece pistas cujo pai já está no
-        //      histórico (lógica de rodarCenas, via getPistasDisponiveis).
-        // ================================================================
-
         // --- Trilha SÉRIA: cracha -> camera -> celular_esquecido (final) ---
         dependencias.inserirDependencia(null, new Pista("cracha", "Crachá de Acesso", ""));
         dependencias.inserirDependencia("cracha", new Pista("camera", "Câmera de Segurança", ""));
-        // Pista final sob "camera" (ter camera implica ter cracha). Só é
-        // oferecida na Cena 5 (rodarCenas filtra por cena).
+        // Filha de camera (ter camera implica ter cracha); só oferecida na C5.
         dependencias.inserirDependencia("camera", new Pista(PISTA_FINAL, "Celular Esquecido", ""));
-        // Auxiliares sérios (fora do caminho da vitória, contam p/ badge):
+        // Auxiliares (fora do caminho da vitória):
         dependencias.inserirDependencia("camera", new Pista("registro_saida", "Registro de Saída", ""));
         dependencias.inserirDependencia("registro_saida", new Pista("extrato_bancario", "Extrato Bancário", ""));
         dependencias.inserirDependencia("camera", new Pista("testemunho_zelador", "Testemunho do Zelador", ""));
 
-        // --- Trilhas malucas: 3 passos (pai -> filho -> neto), distribuídos:
-        //     pista-pai na C1 (reaparece na C3 como retake / 2ª chance),
-        //     filho na C4, neto na C5. As duas iscas-pai reaparecem na C3, então
-        //     quem mordeu uma pode pegar a outra e depois escolher qual trilha
-        //     desenvolver (completar as DUAS é impossível: 6 coletas em 5 cenas).
-        //
+        // --- Trilhas malucas (pai -> filho -> neto) ---
         // ABDUÇÃO: janela_forcada(C1/C3) -> vidro_quebrado(C4) -> luz_estranha(C5)
         dependencias.inserirDependencia(null, new Pista("janela_forcada", "Janela Forçada", ""));
         dependencias.inserirDependencia("janela_forcada", new Pista("vidro_quebrado", "Estilhaços de Vidro", ""));
@@ -144,8 +91,7 @@ public class Jogo {
         dependencias.inserirDependencia("copo_cafe", new Pista("bilhete_manchado", "Bilhete Manchado de Café", ""));
         dependencias.inserirDependencia("bilhete_manchado", new Pista(NETA_LOUCURA, "Mural da Conspiração", ""));
 
-        // --- Distrações: TODAS filhas diretas da raiz (garantem o piso de 4
-        //     em cada cena). Cada cena tem 4 destas reservadas para si. ---
+        // --- Distrações: todas filhas diretas da raiz, 4 reservadas por cena ---
         for (String id : new String[]{
                 "luvas_latex",                                             // C1
                 "gaveta", "exame_pericial", "foto_corredor", "agenda_mesa",   // C2
@@ -156,9 +102,6 @@ public class Jogo {
         }
 
         // ===== TEXTOS DAS PISTAS (título + descrição exibida ao investigar) =====
-        // Distrações se AUTO-DESCARTAM (álibi/impossibilidade/irrelevância).
-        // Pistas do caminho sério puxam para a próxima. Pistas de trilha
-        // maluca começam se auto-descartando mas deixam um gancho bizarro.
 
         // --- Trilha SÉRIA ---
         registrarTextoPista("cracha", "Crachá de Acesso",
@@ -171,14 +114,11 @@ public class Jogo {
                 "O zelador o viu sair apressado com uma caixa, murmurando 'não posso mais ficar aqui'. Não prova nada sozinho, mas dá cor à fuga: ele parecia aliviado, não coagido.");
         registrarTextoPista("extrato_bancario", "Extrato Bancário",
                 "No extrato, um gasto salta aos olhos: uma passagem só de ida para o exterior, comprada em dinheiro semanas antes do sumiço. Ninguém que planeja voltar paga assim. Não é a prova final, mas é o retrato de uma fuga ensaiada com frieza — e um belo troféu para quem quer fechar o caso com chave de ouro.");
-        // Pista final séria (só selecionável na C5, com cracha+camera no
-        // histórico). É a evidência que crava a fuga forjada: a câmera
-        // mostrou o Dr. Almeida deixando algo na mesa — era o próprio
-        // celular, largado de propósito para não ser rastreado.
+        // Pista final séria: no menu aparece como ação ("Revirar Tudo").
         registrarTextoPista(PISTA_FINAL, "Revirar Tudo",
                 "Sem cerimônia, você revira cada gaveta, pasta e bolso da sala — e é aí que ela aparece, quase escondida sobre a mesa: o próprio CELULAR do Dr. Almeida, largado de propósito para não ser rastreado. Nas mensagens não enviadas, ele planeja o sumiço e a nova vida com a pesquisa no bolso. Não houve sequestro — ele forjou tudo. CASO RESOLVIDO!");
 
-        // --- Trilha ABDUÇÃO (janela -> vidro -> luz): escala o absurdo ---
+        // --- Trilha ABDUÇÃO (janela -> vidro -> luz) ---
         registrarTextoPista("janela_forcada", "Janela Forçada",
                 "A janela fica no 4º andar, sem sacada nem escada: ninguém entrou por aqui. Só um vidro velho que cedeu — a não ser por uma marca de queimadura estranha num dos cacos, que ninguém soube explicar.");
         registrarTextoPista("vidro_quebrado", "Estilhaços de Vidro",
@@ -186,7 +126,7 @@ public class Jogo {
         registrarTextoPista(NETA_ABDUCAO, "Luz Estranha no Estacionamento",
                 "Você segue a trilha de queimaduras até o estacionamento e encontra um círculo chamuscado perfeito no asfalto. Ao erguer os olhos, um facho de luz te envolve...");
 
-        // --- Trilha LOUCURA (copo -> bilhete -> mural): mergulho na paranoia ---
+        // --- Trilha LOUCURA (copo -> bilhete -> mural) ---
         registrarTextoPista("copo_cafe", "Copo de Café Abandonado",
                 "O copo de café era da faxineira, que confirma tê-lo esquecido ali. Nada a ver com o caso — embora as manchas secas no fundo formem um desenho curiosamente simétrico, quase proposital.");
         registrarTextoPista("bilhete_manchado", "Bilhete Manchado de Café",
@@ -238,16 +178,10 @@ public class Jogo {
         registrarTextoPista("depoimento_familia", "Depoimento da Família",
                 "A família relata tensão nos últimos dias, mas não sabe de nada concreto. A mamãe do Dr. Almeida, entre lágrimas, faz questão de dizer que ama muito ele. Comovente — mas sem qualquer informação que aponte um rumo.");
 
-        // Textos fixos das 5 cenas (não mudam entre partidas). Cada texto
-        // menciona, em prosa, as mesmas palavras/objetos que aparecem como
-        // pistas selecionáveis daquela cena — o destaque [ENTRE COLCHETES]
-        // simula o "highlight" da palavra no texto corrido.
-        //
-        // A Cena 3 inclui uma menção fixa (não condicional) a "crachá" e
-        // "câmera" — soa como confirmação de rotina para quem já os
-        // coletou, e como alerta real para quem ainda não os tem.
-        String molduraTop  = "  .----------------------------- ☎ TELEFONE -----------------------------.";
-        String molduraBot  = "  '----------------------------------------------------------------------'";
+        // Textos fixos das 5 cenas; cada um menciona em prosa, com destaque
+        // [ENTRE COLCHETES], as pistas selecionáveis daquela cena.
+        String molduraTop  = MOLDURA_TOP;
+        String molduraBot  = MOLDURA_BOT;
         textosCenas = new String[]{
             "=== CENA 1: A Cena do Desaparecimento ===\n"
                 + molduraTop + "\n"
@@ -313,35 +247,24 @@ public class Jogo {
                 + "CONSPIRAÇÃO]? Qual é a resposta certa?"
         };
 
-        // Listas fixas de pistas por cena. O menu real de cada cena é esta
-        // lista FILTRADA pela árvore (só entra no menu o que tem o pai já no
-        // histórico). As 4 primeiras de cada linha são distrações filhas da
-        // raiz (piso garantido); o restante são pistas de trilha e o
-        // TRANSBORDO das pistas-chave sérias (cracha/camera repetidas nas
-        // cenas seguintes para o jogador atrasado ainda poder pegá-las).
+        // Listas fixas de pistas por cena; o menu real é esta lista filtrada
+        // pela árvore (montarMenuDaCena). Composição de cada cena: ver
+        // docs/Notas_de_Design.md, §6.
         pistasPorCena = new String[][]{
-            // C1: 4 filhas da raiz. cracha (sério) + as 2 pistas-pai malucas
-            //     (janela, copo) + 1 distração pura (luvas). Aqui o jogador
-            //     morde (ou não) a primeira isca maluca.
+            // C1: sério (cracha) + 2 iscas malucas + 1 distração
             {"cracha", "janela_forcada", "copo_cafe", "luvas_latex"},
-            // C2: "SÓ JOGO SÉRIO" — sem tentação maluca. 4 distrações-raiz +
-            //     transbordo(cracha, 2ª chance) + camera (sério).
+            // C2: só jogo sério + transbordo(cracha)
             {"gaveta", "exame_pericial", "foto_corredor", "agenda_mesa",
              "cracha", "camera"},
-            // C3: ENCRUZILHADA. 4 distrações-raiz + transbordo(cracha, camera)
-            //     + aux(registro, testemunho) + RETAKE das 2 pistas-pai malucas
-            //     (janela, copo — 2ª chance de pegar; quem tem uma pode pegar
-            //     a outra). Os filhos malucos ainda NÃO aparecem aqui.
+            // C3: transbordo(cracha, camera) + auxiliares + retake das iscas
             {"email_ameaca", "recibo_taxi", "jornal_velho", "cartao_visita",
              "cracha", "camera", "registro_saida", "testemunho_zelador",
              "janela_forcada", "copo_cafe"},
-            // C4: 4 distrações-raiz + transbordo(camera) + aux(extrato) +
-            //     FILHOS malucos avançam (vidro_quebrado, bilhete_manchado —
-            //     só selecionáveis se a pista-pai já foi coletada).
+            // C4: transbordo(camera, registro, testemunho) + extrato + filhos malucos
             {"contrato_concorrente", "historico_ligacoes", "turno_seguranca", "relato_vizinho",
-             "camera", "extrato_bancario", "vidro_quebrado", "bilhete_manchado"},
-            // C5: 4 distrações-raiz + os TRÊS desfechos competindo
-            //     (final sério + 2 netas malucas).
+             "camera", "extrato_bancario", "vidro_quebrado", "bilhete_manchado",
+             "registro_saida", "testemunho_zelador"},
+            // C5: os três desfechos competindo
             {"endereco_secreto", "confissao_gravada", "mapa_local", "depoimento_familia",
              PISTA_FINAL, NETA_ABDUCAO, NETA_LOUCURA}
         };
@@ -353,23 +276,20 @@ public class Jogo {
         textosPistas.put(id, new Pista(id, titulo, descricao));
     }
 
-    // Loop principal: percorre as 5 cenas fixas. A cada cena, monta o menu
-    // (lista da cena FILTRADA pela árvore de dependências), lê a escolha do
-    // jogador e registra a pista no histórico. Ao fim das 5 cenas, decide o
-    // desfecho e pergunta se o jogador quer jogar de novo (para explorar
-    // outros caminhos da árvore). Nunca reinicia no meio de uma partida.
+    // Loop principal: a cada cena exibe o texto, monta o menu filtrado, lê a
+    // escolha e registra no histórico; ao fim decide o desfecho e fecha.
     private void rodarCenas() {
         for (int cena = 0; cena < textosCenas.length; cena++) {
-            terminal.exibir("\n" + textosCenas[cena]);
+            terminal.exibir("\n" + SEPARADOR_CENA);
+            terminal.exibir(textosCenas[cena]);
 
             List<String> menu = montarMenuDaCena(cena);
-            // Piso garantido no gabarito, mas por segurança: se por algum
-            // motivo o menu vier vazio, pula a cena sem travar.
+            // Salvaguarda: menu vazio pula a cena sem travar.
             if (menu.isEmpty()) {
                 continue;
             }
 
-            terminal.exibir("");
+            terminal.exibir("\nPISTAS DISPONÍVEIS:");
             for (int i = 0; i < menu.size(); i++) {
                 Pista p = textosPistas.get(menu.get(i));
                 terminal.exibir("  " + (i + 1) + ". " + p.titulo);
@@ -382,16 +302,13 @@ public class Jogo {
             historico.inserirPista(idEscolhido);
         }
 
-        // Fim das 5 cenas: decide o desfecho e fecha a partida.
         int desfecho = verificarGameOver();
         imprimirRelatorio(desfecho);
         reiniciar();
     }
 
-    // Monta o menu da cena: percorre a lista fixa de pistas daquela cena e
-    // mantém apenas as que estão SELECIONÁVEIS agora — a árvore só libera uma
-    // pista quando seu pai já está no histórico (getPistasDisponiveis), e não
-    // repetimos pistas já coletadas. Ids duplicados na lista são ignorados.
+    // Menu da cena = lista fixa da cena mantendo só as pistas selecionáveis:
+    // pai já no histórico (árvore), não coletadas e sem ids duplicados.
     private List<String> montarMenuDaCena(int cena) {
         List<Pista> disponiveis = dependencias.getPistasDisponiveis(historico);
         List<String> idsDisponiveis = new ArrayList<>();
@@ -409,9 +326,8 @@ public class Jogo {
         return menu;
     }
 
-    // Lê a escolha do jogador de forma robusta: aceita só um número dentro do
-    // range do menu. Entrada inválida (não numérica ou fora do range) reexibe
-    // o aviso e pede de novo — nunca lança exceção nem trava o script.
+    // Lê a escolha do jogador: só aceita número dentro do range do menu;
+    // entrada inválida avisa e pede de novo, sem lançar exceção.
     private String lerEscolha(List<String> menu) {
         while (true) {
             terminal.exibir("\nDigite o número da pista que quer investigar:");
@@ -427,7 +343,7 @@ public class Jogo {
                     // cai no aviso abaixo
                 }
             }
-            terminal.exibir("Entrada inválida. Escolha um número entre 1 e " + menu.size() + ".");
+            terminal.exibir("Isso não consta no caso, detetive. Digite um número entre 1 e " + menu.size() + ".");
         }
     }
 
@@ -437,11 +353,8 @@ public class Jogo {
     private static final int DESFECHO_ABDUCAO = 2;
     private static final int DESFECHO_LOUCURA = 3;
 
-    // Ao fim das 5 cenas, decide o desfecho pelo que o jogador coletou.
-    // Prioridade: vitória séria > abdução > loucura > derrota padrão.
-    // (As três pistas de desfecho são mutuamente exclusivas na prática, pois
-    // completar mais de uma trilha é matematicamente impossível — a prioridade
-    // é só uma salvaguarda determinística.)
+    // Decide o desfecho pelo histórico. Prioridade vitória > abdução >
+    // loucura > derrota (na prática as trilhas são mutuamente exclusivas).
     private int verificarGameOver() {
         if (historico.contemPista(PISTA_FINAL)) {
             return DESFECHO_VITORIA;
@@ -455,10 +368,8 @@ public class Jogo {
         return DESFECHO_DERROTA;
     }
 
-    // Pergunta se o jogador quer jogar de novo. Se sim, zera o histórico e
-    // roda as 5 cenas de novo (para o jogador explorar outros ramos da
-    // árvore). Se não, encerra. O snapshot do caminho já foi salvo em
-    // todosCaminhos por imprimirRelatorio(), então aqui só limpamos.
+    // Oferece nova partida: zera o histórico e roda as cenas de novo (o
+    // snapshot do caminho já foi guardado em todosCaminhos).
     private void reiniciar() {
         terminal.exibir("\nQuer investigar o caso de novo, por outro caminho? (s/n)");
         String resposta = terminal.lerEntrada();
@@ -471,13 +382,13 @@ public class Jogo {
         }
     }
 
-    // Exibe o relatório da partida e persiste os dados. A versão detalhada
-    // (listar todos os caminhos percorridos) fica para a Etapa 6 — aqui já
-    // registramos o snapshot da partida atual, mostramos o desfecho e
-    // salvamos. 'desfecho' é um dos DESFECHO_*.
+    // Exibe epílogo + relatório da sessão e persiste. 'desfecho' é um DESFECHO_*.
     private void imprimirRelatorio(int desfecho) {
         todosCaminhos.add(historico.toArray());
         tentativas++;
+
+        // Epílogo antes do relatório: a história fecha colada no clímax.
+        terminal.exibir("\n" + epilogoDesfecho(desfecho));
 
         String dataHora = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
@@ -485,28 +396,115 @@ public class Jogo {
         terminal.exibir("         RELATÓRIO DE INVESTIGAÇÃO");
         terminal.exibir("============================================");
         terminal.exibir("Detetive  : " + nomeJogador);
-        terminal.exibir("Partidas  : " + tentativas);
+        terminal.exibir("Tentativas: " + tentativas);
         terminal.exibir("Data/Hora : " + dataHora);
         terminal.exibir("");
-        terminal.exibir("Caminho desta partida:");
-        historico.imprimirHistorico();
+
+        // Todas as tentativas da sessão. O rótulo deriva da última pista do
+        // caminho (pistas de desfecho só podem ser a 5ª coleta); finais
+        // malucos não ganham a linha de beco sem saída.
+        for (int i = 0; i < todosCaminhos.size(); i++) {
+            String[] caminho = todosCaminhos.get(i);
+            String ultimaPista = (caminho.length > 0) ? caminho[caminho.length - 1] : null;
+            boolean sucesso = PISTA_FINAL.equals(ultimaPista);
+            boolean alternativo = NETA_ABDUCAO.equals(ultimaPista) || NETA_LOUCURA.equals(ultimaPista);
+            String rotulo = sucesso ? "SUCESSO" : (alternativo ? "FINAL ALTERNATIVO" : "FALHOU");
+            terminal.exibir("--- Tentativa " + (i + 1) + " (" + rotulo + ") ---");
+            terminal.exibir("  " + formatarCaminho(caminho));
+            if (!sucesso && !alternativo) {
+                if (ultimaPista != null) {
+                    Pista p = textosPistas.get(ultimaPista);
+                    String titulo = (p != null) ? p.titulo : ultimaPista;
+                    terminal.exibir("  ✗ \"" + titulo + "\" levou a um beco sem saída.");
+                } else {
+                    terminal.exibir("  ✗ Nenhuma pista foi investigada.");
+                }
+            }
+            terminal.exibir("");
+        }
+
+        // Árvore inteira do caso com o rastro da sessão colorido por cima.
+        terminal.exibir("MAPA DO CASO:");
+        terminal.exibir("  Toda pista COLORIDA já foi investigada por você.");
+        terminal.exibir("  verde: pista-chave | amarelo: excelência | azul: pista comum");
         terminal.exibir("");
+        terminal.exibir(dependencias.desenharAscii(historicoDaSessao(), estiloDoMapa()));
+
         terminal.exibir("Resultado : " + textoDesfecho(desfecho));
         terminal.exibir("============================================");
 
         persistencia.salvar(nomeJogador, tentativas, todosCaminhos, desfecho == DESFECHO_VITORIA);
     }
 
-    // Texto do desfecho exibido no relatório. A badge de excelência exige
-    // vencer E ter coletado as 3 pistas auxiliares verdadeiras.
+    // Agrega as pistas de todos os caminhos da sessão (sem repetição) para o
+    // mapa colorir tudo que o jogador já percorreu.
+    private ListaEncadeada historicoDaSessao() {
+        ListaEncadeada agregado = new ListaEncadeada();
+        for (String[] caminho : todosCaminhos) {
+            for (String id : caminho) {
+                if (!agregado.contemPista(id)) {
+                    agregado.inserirPista(id);
+                }
+            }
+        }
+        return agregado;
+    }
+
+    // Estilo do mapa ASCII: importantes (verde), auxiliares da badge
+    // (amarelo), símbolos das pistas-final e títulos legíveis.
+    private Arvore.EstiloMapa estiloDoMapa() {
+        Arvore.EstiloMapa estilo = new Arvore.EstiloMapa();
+
+        // Importantes = trilhas de desfecho + auxiliares da badge.
+        Set<String> importantes = new HashSet<>();
+        for (String id : PRE_REQUISITOS) importantes.add(id);
+        importantes.add(PISTA_FINAL);
+        for (String id : AUXILIARES) importantes.add(id);
+        importantes.add("janela_forcada");
+        importantes.add("vidro_quebrado");
+        importantes.add(NETA_ABDUCAO);
+        importantes.add("copo_cafe");
+        importantes.add("bilhete_manchado");
+        importantes.add(NETA_LOUCURA);
+        estilo.importantes = importantes;
+
+        estilo.auxiliares = new HashSet<>(java.util.Arrays.asList(AUXILIARES));
+
+        // Símbolos das pistas-final (só aparecem quando coletadas).
+        java.util.Map<String, String> simbolos = new java.util.HashMap<>();
+        simbolos.put(PISTA_FINAL, "★");
+        simbolos.put(NETA_ABDUCAO, "🛸");
+        simbolos.put(NETA_LOUCURA, "🌀");
+        estilo.simbolos = simbolos;
+
+        estilo.titulos = titulosDasPistas();
+        return estilo;
+    }
+
+    // id -> título legível (a árvore guarda id cru como título nas distrações).
+    private java.util.Map<String, String> titulosDasPistas() {
+        java.util.Map<String, String> titulos = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, Pista> e : textosPistas.entrySet()) {
+            titulos.put(e.getKey(), e.getValue().titulo);
+        }
+        return titulos;
+    }
+
+    // Formata um snapshot de caminho no padrão "[a] -> [b] -> FIM".
+    private String formatarCaminho(String[] caminho) {
+        StringBuilder sb = new StringBuilder();
+        for (String id : caminho) {
+            sb.append("[").append(id).append("] -> ");
+        }
+        sb.append("FIM");
+        return sb.toString();
+    }
+
+    // Linha de resultado exibida no relatório.
     private String textoDesfecho(int desfecho) {
         switch (desfecho) {
             case DESFECHO_VITORIA:
-                boolean excelencia = true;
-                for (String aux : AUXILIARES) {
-                    if (!historico.contemPista(aux)) { excelencia = false; break; }
-                }
-                return excelencia
+                return venceuComExcelencia()
                     ? "CASO RESOLVIDO COM EXCELÊNCIA — nenhuma pista escapou!"
                     : "CASO RESOLVIDO — o Dr. Almeida forjou o próprio sumiço.";
             case DESFECHO_ABDUCAO:
@@ -516,5 +514,99 @@ public class Jogo {
             default:
                 return "CASO NÃO RESOLVIDO — as pistas certas escaparam desta vez.";
         }
+    }
+
+    // Excelência = ter coletado a dupla AUXILIARES na partida atual.
+    private boolean venceuComExcelencia() {
+        for (String aux : AUXILIARES) {
+            if (!historico.contemPista(aux)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Epílogo narrativo do desfecho, no mesmo formato de bloco das cenas.
+    private String epilogoDesfecho(int desfecho) {
+        switch (desfecho) {
+            case DESFECHO_VITORIA:
+                if (venceuComExcelencia()) {
+                    return "=== EPÍLOGO: CASO ENCERRADO COM EXCELÊNCIA ===\n"
+                        + MOLDURA_TOP + "\n"
+                        + "   CHEFE (solene, pigarreando): \"Detetive... o reitor ligou. A imprensa\n"
+                        + "        ligou. Minha MÃE ligou. Todos querem saber quem fechou o caso\n"
+                        + "        Almeida sem deixar UMA ponta solta. Amanhã: medalha e foto.\"\n"
+                        + MOLDURA_BOT + "\n\n"
+                        + "Não foi só o celular: o registro de saída no papel e a prosa com o zelador\n"
+                        + "costuraram um dossiê que o promotor chamou de \"obra de arte\". Cada passo da\n"
+                        + "fuga forjada do Dr. Almeida está documentado, datado e testemunhado — não\n"
+                        + "sobrou nem uma vírgula para a defesa. Sua foto agora está pendurada no mural\n"
+                        + "da delegacia (o do orgulho, não o da conspiração) — e o zelador conta para\n"
+                        + "quem quiser ouvir que sempre soube que você ia longe.";
+                }
+                return "=== EPÍLOGO: CASO ENCERRADO ===\n"
+                    + MOLDURA_TOP + "\n"
+                    + "   CHEFE (eufórico): \"Detetive! A federal interceptou o Dr. Almeida no\n"
+                    + "        aeroporto — bigode falso, passagem só de ida e a pesquisa na mala.\n"
+                    + "        Confessou tudo em dez minutos. BELO trabalho!\"\n"
+                    + MOLDURA_BOT + "\n\n"
+                    + "O celular esquecido contou o resto: nas mensagens que nunca enviou, o\n"
+                    + "Dr. Almeida ensaiava a despedida e a vida nova com a pesquisa no bolso.\n"
+                    + "Não houve crime — houve encenação. E você a desmontou seguindo o rastro\n"
+                    + "certo: o crachá, a câmera, e a coragem de revirar a sala quando todo mundo\n"
+                    + "já tinha desistido. O caso vai para a estante dos resolvidos.";
+            case DESFECHO_ABDUCAO:
+                return "=== EPÍLOGO: VOO NOTURNO ===\n"
+                    + MOLDURA_TOP + "\n"
+                    + "   CENTRAL (chiado): \"Detetive?... Detetive, na escuta?... Alô?...\n"
+                    + "        ...registrando na ocorrência: paradeiro desconhecido. Última\n"
+                    + "        posição, o estacionamento do laboratório.\"\n"
+                    + MOLDURA_BOT + "\n\n"
+                    + "Lá embaixo, a Terra vira uma bolinha azul na janela oval. Os seres de luz\n"
+                    + "não falam português, mas apontam para o seu bloquinho de anotações com o\n"
+                    + "que só pode ser admiração profissional. Na delegacia, seu relatório final —\n"
+                    + "\"levado por um facho de luz\" — foi arquivado como licença médica. Mas você\n"
+                    + "sabe a verdade. De todos os detetives do caso Almeida, você foi o único que\n"
+                    + "olhou para CIMA. Parabéns: o universo aprova os curiosos.";
+            case DESFECHO_LOUCURA:
+                return "=== EPÍLOGO: O MURAL SABE ===\n"
+                    + MOLDURA_TOP + "\n"
+                    + "   ENFERMEIRO (gentil): \"Visita pro senhor! E olha só: trouxemos barbante\n"
+                    + "        novinho. Do vermelho. Daquele que o senhor gosta.\"\n"
+                    + MOLDURA_BOT + "\n\n"
+                    + "A equipe encontrou a sala de provas forrada de fotos, recortes e barbante\n"
+                    + "vermelho — dois peritos entraram céticos e saíram \"estranhamente\n"
+                    + "convencidos\". Na ala tranquila do sanatório, você segue conectando pontos\n"
+                    + "que ninguém mais vê, feliz como nunca. E toda noite, da foto central do\n"
+                    + "mural, o Dr. Almeida parece sorrir para você. Como quem agradece por\n"
+                    + "alguém, enfim, ter entendido TUDO.";
+            default:
+                return "=== EPÍLOGO: ARQUIVO MORTO ===\n"
+                    + MOLDURA_TOP + "\n"
+                    + "   CHEFE (cansado): \"Sem prova, sem suspeito, sem história pra imprensa.\n"
+                    + "        O caso Almeida vai pro arquivo morto, detetive. Vai pra casa.\n"
+                    + "        Descansa. Amanhã a gente conversa.\"\n"
+                    + MOLDURA_BOT + "\n\n"
+                    + feedbackDerrota() + "\n\n"
+                    + "O laboratório continua lá, lacrado, do jeitinho que você deixou — e toda\n"
+                    + "investigação merece uma segunda chance.";
+        }
+    }
+
+    // Aponta o primeiro elo da corrente da vitória que faltou no histórico.
+    private String feedbackDerrota() {
+        if (!historico.contemPista(PRE_REQUISITOS[0])) {
+            return "A perícia foi direta no arquivamento: ninguém examinou o crachá caído\n"
+                 + "junto à porta — e era ele que abria a linha do tempo daquela noite. Sem o\n"
+                 + "ponto de partida, o resto virou papel solto.";
+        }
+        if (!historico.contemPista(PRE_REQUISITOS[1])) {
+            return "Você tinha o horário do crachá na mão, mas nunca o cruzou com as imagens\n"
+                 + "da câmera do corredor. A noite inteira do Dr. Almeida estava gravada — e\n"
+                 + "ninguém apertou o play.";
+        }
+        return "Você cruzou o crachá com a câmera e parou a um passo da verdade: faltou\n"
+             + "revirar a sala no fim. O celular do Dr. Almeida ainda está lá, sobre a\n"
+             + "mesa, esperando um detetive sem cerimônia.";
     }
 }
