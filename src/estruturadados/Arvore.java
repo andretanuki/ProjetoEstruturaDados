@@ -11,10 +11,10 @@ import java.util.Set;
 public class Arvore {
 
     // Códigos ANSI para colorir o mapa de caminhos no relatório final.
-    private static final String ANSI_RESET = " [0m";
-    private static final String ANSI_VERDE = " [32m"; // pista importante coletada
-    private static final String ANSI_AZUL  = " [34m"; // pista percorrida (não importante)
-    private static final String ANSI_AMARELO = " [33m"; // auxiliar de excelência coletada
+    private static final String ANSI_RESET = "\033[0m";
+    private static final String ANSI_VERDE = "\033[32m"; // pista importante coletada
+    private static final String ANSI_AZUL  = "\033[34m"; // pista percorrida (não importante)
+    private static final String ANSI_AMARELO = "\033[33m"; // auxiliar de excelência coletada
 
     // A raiz é um nó sentinela sem pista — seus filhos são as pistas iniciais do jogo
     private NoArvore raiz;
