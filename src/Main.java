@@ -7,12 +7,12 @@ public class Main {
     // Decide entre teclado e script, monta o Terminal e dá a partida no Jogo.
     public static void main(String[] args) {
 
-        // os parametros -c/--color ligam cores e emojis (nem todo terminal suporta);
+        // os parametros -e/--emoji ligam os emojis (nem todo terminal desenha);
         // qualquer outro argumento é o arquivo de script usado no lugar do teclado
         String arquivoInput = null;
         for (String arg : args) {
-            if (arg.equals("-c") || arg.equals("--color")) {
-                Terminal.formatacaoAtiva = true;
+            if (arg.equals("-e") || arg.equals("--emoji")) {
+                Terminal.emojisAtivos = true;
             } else {
                 arquivoInput = arg;
             }

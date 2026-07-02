@@ -1,7 +1,6 @@
 package estruturadados;
 
 import engine.Pista;
-import engine.Terminal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -104,9 +103,6 @@ public class Arvore {
         }
         if (!pista.simbolo.isEmpty()) {
             rotulo = rotulo + " " + pista.simbolo;
-        }
-        if (!Terminal.formatacaoAtiva) {
-            return rotulo + " [x]"; // sem cor, a marca [x] indica "investigada"
         }
         return pista.pintar(rotulo);
     }

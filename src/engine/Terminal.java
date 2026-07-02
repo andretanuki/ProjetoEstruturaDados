@@ -9,9 +9,9 @@ import java.util.Scanner;
 // arquivo de script (test_inputs/), pausas e limpeza de tela.
 public class Terminal {
 
-    // Cores e emojis são ativaveis pela flag -c/--color
-    // Para lidar com incompatibilidade de terminais
-    public static boolean formatacaoAtiva = false;
+    // Emojis são ativaveis pela flag -e/--emoji (cores sempre ficam ligadas)
+    // Para lidar com terminais que não desenham emoji
+    public static boolean emojisAtivos = false;
 
     private Scanner scanner;
     private BufferedReader leitorArquivo;
@@ -51,10 +51,10 @@ public class Terminal {
 
     // Imprime uma linha na tela. Alias para PrintLn Basicamente
     public void exibir(String texto) {
-        System.out.println(formatacaoAtiva ? texto : semEmojis(texto));
+        System.out.println(emojisAtivos ? texto : semEmojis(texto));
     }
 
-    // Sem formatação, troca os símbolos decorativos por equivalentes ASCII
+    // Sem a flag -e, troca os símbolos decorativos por equivalentes ASCII
     // (nem toda fonte de terminal desenha emoji).
     private String semEmojis(String texto) {
         return texto.replace("☎", "#")
@@ -64,14 +64,9 @@ public class Terminal {
                     .replace("🌀", "(espiral)");
     }
 
-    // Limpa a tela. No modo script não faz nada; sem formatação só separa
-    // com uma linha em branco (o escape de limpeza também é código ANSI).
+    // Limpa a tela via escape ANSI. No modo script não faz nada.
     public void limparTela() {
         if (leitorArquivo != null) {
-            return;
-        }
-        if (!formatacaoAtiva) {
-            System.out.println();
             return;
         }
         System.out.print("\033[H\033[2J");

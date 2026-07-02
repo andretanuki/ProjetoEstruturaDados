@@ -27,11 +27,7 @@ public class Pista {
     }
 
     // Devolve o texto pintado com a cor do papel desta pista.
-    // Com a formatação desligada devolve o texto puro, sem códigos ANSI.
     public String pintar(String texto) {
-        if (!Terminal.formatacaoAtiva) {
-            return texto;
-        }
         return ANSI_CORES[cor] + texto + ANSI_RESET;
     }
 }

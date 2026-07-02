@@ -22,12 +22,18 @@ Para iniciar a investigação normalmente pelo seu teclado, execute:
 java ./src/Main.java
 ```
 
-### 🎨 Modo Colorido (Opcional)
-Por padrão o jogo imprime texto puro, compatível com qualquer terminal. Se o seu terminal suporta códigos ANSI e emojis, ative as cores das pistas, a limpeza de tela e os símbolos especiais com a flag `-c` (ou `--color`):
-```bash
-java ./src/Main.java -c
+**No Windows (cmd/PowerShell)**, use o script incluído, que ajusta o console e o Java para UTF-8 (senão acentos como `ã` e `õ` viram `?`):
+```bat
+jogo.bat
 ```
-A flag também pode ser combinada com o modo automático: `java ./src/Main.java -c test_inputs/vitoria.txt`
+Ele aceita os mesmos argumentos: `jogo.bat -e` ou `jogo.bat test_inputs\vitoria.txt`
+
+### 🎨 Emojis (Opcional)
+As cores das pistas e a limpeza de tela ficam sempre ativas. Por padrão os símbolos decorativos são substituídos por equivalentes ASCII, compatíveis com qualquer fonte de terminal. Se o seu terminal desenha emojis, ative-os com a flag `-e` (ou `--emoji`):
+```bash
+java ./src/Main.java -e
+```
+A flag também pode ser combinada com o modo automático: `java ./src/Main.java -e test_inputs/vitoria.txt`
 
 ### ⚡ Modo Automático (Testes de Múltiplos Finais)
 Graças à injeção de I/O na classe `Terminal`, o jogo pode jogar a si próprio lendo arquivos pré-gravados. Isso é extremamente útil para testes contínuos ou para pular rapidamente para um dos finais possíveis da narrativa.
