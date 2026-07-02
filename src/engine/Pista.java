@@ -1,4 +1,4 @@
-package br.com.investigativo.model;
+package engine;
 
 public class Pista {
 

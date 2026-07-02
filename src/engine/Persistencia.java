@@ -1,4 +1,4 @@
-package br.com.investigativo.engine;
+package engine;
 
 import java.io.*;
 import java.util.ArrayList;

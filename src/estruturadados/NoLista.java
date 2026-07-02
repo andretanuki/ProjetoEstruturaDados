@@ -1,4 +1,4 @@
-package br.com.investigativo.datastructures;
+package estruturadados;
 
 class NoLista {
 

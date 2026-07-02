@@ -1,7 +1,7 @@
-package br.com.investigativo;
 
-import br.com.investigativo.engine.Jogo;
-import br.com.investigativo.engine.Terminal;
+
+import engine.Jogo;
+import engine.Terminal;
 
 public class Main {
 

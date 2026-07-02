@@ -1,6 +1,6 @@
-package br.com.investigativo.datastructures;
+package estruturadados;
 
-import br.com.investigativo.model.Pista;
+import engine.Pista;
 import java.util.ArrayList;
 import java.util.List;
 
