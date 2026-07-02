@@ -40,6 +40,10 @@ frontend_feedback.md
 # Plano de prompts de uso pessoal — não deve ser commitado
 prompts.md
 
-# Ignorar todos os arquivos Markdown, exceto a documentação em docs/
+# Ignorar todos os arquivos Markdown, exceto a documentação em docs/ e o README
 *.md
 !docs/*.md
+!README.md
+
+# Ignorar guias de apresentação gerados
+Guia_Apresentacao_Grupo.*
