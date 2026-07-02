@@ -1,0 +1,53 @@
+INSTRUÇÕES DE EXECUÇÃO DO PROGRAMA
+==================================
+
+Requisito: Java 11 ou superior recomendado
+
+1. EXECUÇÃO PADRÃO
+------------------
+A partir da pasta raiz do projeto, execute:
+
+    java ./src/Main.java
+
+No Windows, recomenda-se executar por meio do script incluído:
+
+    jogo.bat
+
+Executar pelo jogo.bat deixa os textos mais consistentes em Windows,
+pelo que foi testado.
+
+2. PARÂMETROS DISPONÍVEIS
+-------------------------
+O programa aceita os seguintes argumentos de linha de comando:
+
+  -e  ou  --emoji
+
+      Ativa os símbolos decorativos em formato de emoji. Por padrão,
+      eles são substituídos por equivalentes ASCII, compatíveis com
+      qualquer fonte de terminal. Utilize esta opção apenas se o seu
+      terminal desenhar emojis corretamente.
+
+      Exemplo:  java ./src/Main.java -e
+                jogo.bat -e
+
+  <arquivo>
+
+      Qualquer outro argumento é interpretado como um arquivo de
+      script de entradas, executando o jogo em modo automático (as
+      respostas são lidas do arquivo em vez do teclado). Arquivos de
+      exemplo estão disponíveis na pasta test_inputs/.
+
+      Exemplo:  java ./src/Main.java test_inputs/vitoria.txt
+                jogo.bat test_inputs\vitoria.txt
+
+Os parâmetros podem ser combinados:
+
+    java ./src/Main.java -e test_inputs/vitoria.txt
+
+3. COMPILAÇÃO MANUAL (OPCIONAL)
+-------------------------------
+Caso prefira compilar antes de executar:
+
+    javac -d build src/Main.java src/engine/*.java src/estruturadados/*.java
+    java -cp build Main
+

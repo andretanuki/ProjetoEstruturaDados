@@ -52,14 +52,13 @@ O atalho `java ./src/Main.java` compila o projeto inteiro em memória e exige **
 
 ```bash
 # 1. Compilar (gera as classes no diretório build/, já ignorado pelo git)
-javac -encoding UTF-8 -d build src/Main.java src/engine/*.java src/estruturadados/*.java
+javac -d build src/Main.java src/engine/*.java src/estruturadados/*.java
 
 # 2. Executar
 java -cp build Main
 ```
 
 Observações:
-- O `-encoding UTF-8` é importante: os textos do jogo têm acentuação e, sem ele, Javas antigos podem compilar com a codificação padrão do sistema e corromper os caracteres (especialmente no Windows).
 - Todos os argumentos continuam funcionando iguais: `java -cp build Main -c`, `java -cp build Main test_inputs/vitoria.txt`, etc.
 - Execute sempre da raiz do repositório para que o save (`dados/partidas.txt`) seja criado/lido no mesmo lugar em todas as formas de execução.
 
