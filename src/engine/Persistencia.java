@@ -5,12 +5,11 @@ import java.util.ArrayList;
 import java.util.List;
 import estruturadados.ListaEncadeada;
 
-// PERSISTENCIA — lembra os jogadores entre sessões: um bloco por detetive
+// PERSISTENCIA - lembra os jogadores entre sessões: um bloco por detetive
 // num arquivo texto, com todas as rotas acumuladas.
 public class Persistencia {
 
-    // Formato: UM bloco por detetive, com todas as rotas acumuladas
-    // (decisões e detalhes em docs/Notas_de_Design.md, §8):
+    //UM bloco por detetive, com todas as rotas acumuladas
     //
     //   >>> DETETIVE: nome
     //   Tentativas: N
@@ -42,7 +41,7 @@ public class Persistencia {
         }
     }
 
-    // Regrava o arquivo inteiro: blocos dos outros detetives intactos +
+    // Regrava o arquivo inteiro: blocos dos outros detetives +
     // bloco atualizado do jogador com todas as tentativas.
     public void salvar(String nomeJogador, List<ListaEncadeada> todasTentativas, boolean venceu) {
 

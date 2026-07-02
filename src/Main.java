@@ -3,7 +3,7 @@
 import engine.Jogo;
 import engine.Terminal;
 
-// MAIN — liga tudo: cria o Terminal (teclado ou script) e inicia o Jogo.
+// MAIN — liga tudo: cria o Terminal (suporta teclado ou script) e inicia o Jogo.
 public class Main {
 
     // Decide entre teclado e script, monta o Terminal e dá a partida no Jogo.

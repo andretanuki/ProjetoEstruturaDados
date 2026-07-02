@@ -4,11 +4,11 @@ import engine.Pista;
 import java.util.ArrayList;
 import java.util.List;
 
-// ARVORE — a estrutura de dependências do caso: cada nó é uma pista e os
+// ARVORE - a estrutura de dependências do caso: cada nó é uma pista e os
 // filhos só ficam disponíveis depois que o pai entra no histórico do jogador.
 public class Arvore {
 
-    // A raiz é um nó sentinela sem pista — seus filhos são as pistas iniciais do jogo
+    // A raiz é um nó sentinela(valor null) sem pista - seus filhos são as pistas iniciais do jogo
     private NoArvore raiz;
 
     // Cria a árvore apenas com a raiz sentinela.
@@ -24,7 +24,7 @@ public class Arvore {
         }
     }
 
-    // Busca a Pista com o id informado — a árvore é a fonte única dos dados
+    // Busca a Pista com o id informado - a árvore é a fonte única dos dados
     // das pistas (o Jogo consulta até título e descrição aqui).
     public Pista buscarPista(String id) {
         NoArvore no = (id == null) ? null : buscarNo(raiz, id);
@@ -32,14 +32,13 @@ public class Arvore {
     }
 
     // Retorna os ids das pistas cujo pai já está no histórico do jogador
-    // (Busca em Profundidade — DFS)
     public List<String> getPistasDisponiveis(ListaEncadeada historico) {
         List<String> disponiveis = new ArrayList<>();
         coletarPistasDisponiveis(raiz, historico, disponiveis);
         return disponiveis;
     }
 
-    // Passo recursivo do DFS: filhos de nós já coletados entram na lista.
+    // Passo recursivo: filhos de nós já coletados entram na lista.
     private void coletarPistasDisponiveis(NoArvore atual, ListaEncadeada historico, List<String> disponiveis) {
         boolean noAtualColetado = (atual == raiz) || historico.contemPista(atual.pista.id);
         if (!noAtualColetado) {
@@ -67,9 +66,7 @@ public class Arvore {
         return null;
     }
 
-    // =========================================================================
     // MÉTODOS VISUAIS E DE DESENHO (Para o relatório no Terminal)
-    // =========================================================================
 
     // Desenha a árvore inteira em ASCII, realçando o rastro do jogador.
     public String desenharAscii(ListaEncadeada historico) {

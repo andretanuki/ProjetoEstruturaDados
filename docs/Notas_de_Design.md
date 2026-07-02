@@ -77,8 +77,8 @@ na árvore (só alcançável via registro C3 → extrato C4) e fica fora da badg
   escolher qual trilha desenvolver), mas completar as duas é impossível
   (6 coletas em 5 cenas).
 - Coletar a neta consome 3 escolhas da trilha, o que torna impossível ter
-  completado também a vitória séria — a neta no histórico já define o
-  desfecho alternativo (`verificarGameOver`).
+  completado também a vitória séria — a neta como última pista já define o
+  desfecho alternativo (`Roteiro.desfechoDe`).
 
 ## 6. Coreografia das listas por cena (`pistasPorCena`)
 
@@ -104,12 +104,14 @@ de rotina para quem já os coletou e alerta real para quem não.
   no clímax da última pista; o relatório burocrático (tentativas, mapa,
   resultado) vem depois, como apêndice. Motivo: nos finais malucos, a
   revelação ("você foi abduzido") não pode ficar 40 linhas depois do gancho.
-- **Rótulo por tentativa derivado do próprio caminho** (última pista do
-  snapshot — pistas de desfecho só podem ser a 5ª coleta):
-  celular = `SUCESSO`; netas malucas = `FINAL ALTERNATIVO` (sem a linha de
-  "beco sem saída", pois são desfechos celebrados); resto = `FALHOU` + linha
-  de beco. Motivo: derivar do parâmetro "última tentativa venceu?" rotulava
-  errado a vitória de quem vence e joga de novo.
+- **O desfecho é uma função da última pista do caminho** (pistas de desfecho
+  só podem ser a 5ª coleta) — classificador único `Roteiro.desfechoDe()`,
+  usado tanto para decidir o fim da partida quanto para rotular cada
+  tentativa no relatório: celular = `SUCESSO`; netas malucas =
+  `FINAL ALTERNATIVO` (sem a linha de "beco sem saída", pois são desfechos
+  celebrados); resto = `FALHOU` + linha de beco. Motivo: derivar do parâmetro
+  "última tentativa venceu?" rotulava errado a vitória de quem vence e joga
+  de novo.
 - **Mapa ASCII:** a árvore INTEIRA do gabarito é desenhada; o realce vale só
   para pistas coletadas na sessão (agregado de todos os caminhos):
   amarelo = auxiliar da badge, verde = importante (trilhas de desfecho),
@@ -154,9 +156,9 @@ esqueleto original (o código já os respeita):
   falha silenciosamente).
 - **A raiz da `Arvore` é um nó sentinela sem pista** (`raiz.pista == null`):
   buscas devem partir dos filhos da raiz, nunca comparar a raiz em si.
-- Pista com mais de um pré-requisito é cadastrada como mais de um `NoArvore`
-  com o mesmo id (um sob cada pai) — `getPistasDisponiveis` deduplica para o
-  menu não repetir a pista.
+- Cada pista tem exatamente UM pai na árvore (o gabarito atual não usa
+  multi-pré-requisito). Se um dia uma pista ganhar dois pais (dois nós com o
+  mesmo id), o menu já deduplica por conta própria (`menu.contains`).
 - Toda folha da árvore deve ser um terminal intencional (vitória/derrota),
   nunca um nó intermediário "pela metade".
 - A lista formata (`formatarHistorico()`), mas nunca imprime: a exibição é

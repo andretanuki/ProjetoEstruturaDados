@@ -4,7 +4,7 @@ import engine.Pista;
 import java.util.ArrayList;
 import java.util.List;
 
-// NÓ DA ÁRVORE — guarda uma Pista e a lista de filhos (as pistas que ela desbloqueia).
+// NÓ DA ÁRVORE - guarda uma Pista e a lista de filhos (as pistas que ela desbloqueia).
 class NoArvore {
 
     Pista pista;

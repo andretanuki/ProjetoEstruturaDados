@@ -1,19 +1,52 @@
-# Arquitetura e Organização do Projeto
+# Arquitetura do Projeto
 ### Jogo Investigativo — Estrutura de Dados (2º Período ADS)
 
-Este documento descreve **o que cada classe faz**, **como elas se conversam** e **quem implementa cada parte**. Leia antes de começar a codificar.
+Este documento descreve **o que cada classe faz**, **como elas se conversam** e
+**como compilar, rodar e testar**. O racional das decisões de design (por que
+cada regra é assim) está em `docs/Notas_de_Design.md`.
 
 ---
 
 ## 1. Visão Geral do Sistema
 
-O jogo roda no terminal. O jogador faz login, lê a narrativa de uma cena e escolhe qual pista investigar. O sistema registra cada escolha em uma **Lista Encadeada** (o histórico) e consulta uma **Árvore** (o gabarito lógico) para decidir o que acontece a seguir. Se errar, o jogo salva o caminho percorrido, reinicia e permite nova tentativa. Ao final, exibe um **relatório com todos os caminhos** da sessão e persiste os dados em arquivo.
+O jogo roda no terminal. O jogador (detetive) faz login e atravessa **5 cenas
+fixas** do caso do desaparecimento do Dr. Almeida. Em cada cena escolhe uma
+pista para investigar; cada escolha é registrada em uma **Lista Encadeada**
+(o histórico) e o menu de opções é filtrado por uma **Árvore de dependências**
+(uma pista só fica disponível quando seu "pai" já foi coletado).
+
+Ao fim das 5 cenas, o desfecho é decidido pela **última pista coletada**:
+vitória (com ou sem badge de excelência), dois finais alternativos malucos
+(abdução / loucura) ou derrota. O jogo exibe um **epílogo narrativo**, depois
+um **relatório unificado** com todas as tentativas do jogador (inclusive de
+sessões anteriores) e um **mapa ASCII colorido** da árvore do caso, e grava
+tudo em arquivo — um bloco por detetive.
 
 ---
 
-## 2. Diagrama de Classes
+## 2. Estrutura de Pastas
 
-Cada caixa é uma classe Java. As setas mostram qual classe usa qual. As bolinhas cheias (`*--`) indicam que uma classe contém a outra.
+```
+src/
+├── Main.java                  ← ponto de entrada (pacote raiz)
+├── engine/                    ← motor do jogo
+│   ├── Jogo.java              ← as regras (fluxo, menu, desfecho, relatório)
+│   ├── Roteiro.java           ← todo o conteúdo do caso (só dados)
+│   ├── Persistencia.java      ← gravação/leitura em arquivo
+│   ├── Terminal.java          ← toda a entrada e saída de tela
+│   └── Pista.java             ← modelo de dado (id, textos, cor, símbolo)
+└── estruturadados/            ← as estruturas da disciplina
+    ├── Arvore.java  + NoArvore.java
+    └── ListaEncadeada.java + NoLista.java
+
+test_inputs/                   ← 6 scripts de teste (uma entrada por linha)
+dados/partidas.txt             ← persistência (gerado em runtime, gitignored)
+docs/                          ← esta documentação
+```
+
+---
+
+## 3. Diagrama de Classes
 
 ```mermaid
 classDiagram
@@ -23,9 +56,12 @@ classDiagram
 
     class Terminal {
         -Scanner scanner
+        -BufferedReader leitorArquivo
         +Terminal(String arquivoInput)
         +lerEntrada() String
         +exibir(String texto)
+        +limparTela()
+        +aguardarEnterELimpar()
         +loginUsuario() String
     }
 
@@ -35,306 +71,264 @@ classDiagram
         -Terminal terminal
         -Persistencia persistencia
         -String nomeJogador
-        -int tentativas
-        -List~String[]~ todosCaminhos
+        -List~ListaEncadeada~ todasTentativas
         +Jogo(Terminal terminal)
         +iniciar()
         -rodarCenas()
-        -verificarGameOver() boolean
+        -imprimirRelatorio(int desfecho)
         -reiniciar()
-        -imprimirRelatorio(boolean venceu)
+        -montarGabarito()
+        -montarMenuDaCena(int cena) List~String~
+        -lerEscolha(List~String~ menu) String
+        -historicoDaSessao() ListaEncadeada
+        -venceuComExcelencia() boolean
+    }
+
+    class Roteiro {
+        +String[][] PISTAS
+        +String[][] PISTAS_POR_CENA
+        +String[] TEXTOS_CENAS
+        +desfechoDe(String ultimaPista) int
+        +textoDesfecho(int, boolean) String
+        +epilogoDesfecho(int, boolean, ListaEncadeada) String
     }
 
     class Pista {
         +String id
         +String titulo
         +String descricao
+        +int cor
+        +String simbolo
+        +pintar(String texto) String
     }
 
     class ListaEncadeada {
         -NoLista inicio
         +inserirPista(String id)
         +contemPista(String id) boolean
-        +toArray() String[]
-        +imprimirHistorico()
-    }
-
-    class NoLista {
-        -String idPista
-        -NoLista proximo
+        +formatarHistorico() String
+        +getUltimaPista() String
+        +adicionarSeNaoExistir(ListaEncadeada outra)
     }
 
     class Arvore {
         -NoArvore raiz
         +inserirDependencia(String idPai, Pista filha)
-        +getPistasDisponiveis(ListaEncadeada historico) List~Pista~
-        -buscarNo(String id) NoArvore
-    }
-
-    class NoArvore {
-        -Pista pista
-        -List~NoArvore~ filhos
+        +buscarPista(String id) Pista
+        +getPistasDisponiveis(ListaEncadeada historico) List~String~
+        +desenharAscii(ListaEncadeada historico) String
     }
 
     class Persistencia {
         -String caminhoArquivo
         +Persistencia(String caminhoArquivo)
-        +salvar(String nomeJogador, int tentativas, List~String[]~ caminhos, boolean venceu)
-        +carregarHistorico(String nomeJogador) String
+        +salvar(String nome, List~ListaEncadeada~ tentativas, boolean venceu)
+        +carregarHistorico(String nome) String
+        +carregarCaminhos(String nome) List~ListaEncadeada~
     }
 
     Main --> Terminal : cria
     Main --> Jogo : cria e inicia
     Jogo --> Terminal : usa para IO
+    Jogo --> Roteiro : lê o conteúdo do caso
     Jogo --> ListaEncadeada : mantém histórico
-    Jogo --> Arvore : consulta regras
+    Jogo --> Arvore : consulta menu, textos e mapa
     Jogo --> Persistencia : salva e carrega dados
     Arvore --> ListaEncadeada : consulta contemPista()
     ListaEncadeada *-- NoLista : contém
     Arvore *-- NoArvore : contém
     NoArvore --> Pista : armazena
+    Pista <-- Roteiro : tabela dá origem
 ```
 
 ---
 
-## 3. O Que Cada Classe Faz
+## 4. O Que Cada Classe Faz
 
----
-
-### `Main`
-> **Ponto de entrada do programa.** Cria um `Terminal` e um `Jogo`, passa um para o outro e chama `iniciar()`. Não contém nenhuma lógica de jogo.
-
-Se o jogo for chamado com um arquivo de script:
-```bash
-java Main test_inputs/vitoria.txt
-```
-A `Main` lê o argumento e passa para o `Terminal`, que vai usá-lo no lugar do teclado.
-
----
+### `Main` (pacote raiz)
+> **Liga tudo.** Lê `args[0]` (script opcional), cria o `Terminal` e o `Jogo`
+> e chama `iniciar()`. Nenhuma lógica de jogo.
 
 ### `Terminal`
-> **É o único ponto de contato entre o jogo e o mundo externo** — para exibir texto e para ler o que o jogador digita. Nenhuma outra classe usa `Scanner` ou `System.out.println` diretamente.
+> **Único ponto de contato com o mundo externo.** Nenhuma outra classe usa
+> `Scanner` ou `System.out.println` para a tela do jogo.
 
-#### Por que existe essa classe?
-
-O `Terminal` resolve um problema prático: **testar o jogo exige digitar todas as escolhas manualmente a cada execução**. Ao centralizar toda leitura aqui, é possível substituir o teclado por um arquivo de texto sem mudar nada no resto do jogo.
-
-#### Como funciona em uma cena
-
-A cada cena, o `Jogo` exibe o menu de pistas e chama `terminal.lerEntrada()` para saber a escolha do jogador. O `Terminal` devolve uma `String` — e não importa de onde ela veio:
-
-**Modo teclado:**
-```
-[Menu: "1. Faca    2. Janela Arrombada"]
-Jogo chama → terminal.lerEntrada()
-Jogador digita "1" e aperta Enter
-Terminal devolve → "1"
-```
-
-**Modo arquivo:**
-```
-[Menu: "1. Faca    2. Janela Arrombada"]
-Jogo chama → terminal.lerEntrada()
-Terminal lê a próxima linha do arquivo .txt → "1"
-Terminal devolve → "1"
-```
-
-O comportamento do jogo é **idêntico nos dois casos**.
-
-#### Como montar o arquivo de script
-
-Cada linha do arquivo é uma entrada que o jogador daria, na ordem em que o jogo vai pedi-las:
-
-```
-Andre
-1
-2
-1
-```
-Linha 1 → nome do jogador (login)
-Linha 2 → escolha na Cena 1
-Linha 3 → escolha na Cena 2
-Linha 4 → escolha na Cena 3
-
-#### Métodos
+Com um arquivo de script, cada `lerEntrada()` devolve a próxima linha do
+arquivo (ecoando na tela); sem arquivo, lê do teclado. As pausas
+(`aguardarEnterELimpar`) e a limpeza de tela **não fazem nada no modo script**
+— assim os testes não consomem linhas nem sujam a saída capturada.
 
 | Método | O que faz |
 |---|---|
-| `Terminal(String arquivoInput)` | Se `arquivoInput` for `null`, lê do teclado. Se for um caminho de arquivo, lê dali. |
-| `lerEntrada()` | Retorna a próxima linha — do teclado ou do arquivo, de forma transparente. |
-| `exibir(String texto)` | Imprime texto na tela. |
-| `loginUsuario()` | Pede o nome do jogador e retorna como String. |
+| `Terminal(String arquivoInput)` | `null` = teclado; caminho = lê do script. |
+| `lerEntrada()` | Próxima entrada, transparente à origem. |
+| `exibir(String)` | Imprime uma linha. |
+| `limparTela()` | Limpa a tela (ANSI); no-op no modo script. |
+| `aguardarEnterELimpar()` | "Pressione ENTER" + limpa; no-op no modo script. |
+| `loginUsuario()` | Cabeçalho + lê o nome do detetive. |
 
----
+### `Roteiro`
+> **Todo o conteúdo do caso num lugar só — apenas dados, nenhuma regra.**
+
+- `PISTAS` — a tabela do gabarito: `{ pai, id, título, descrição[, cor][, símbolo] }`.
+  A ordem importa (pai antes dos filhos; linhas com pai `null` definem a ordem
+  do mapa). Colunas 5/6 opcionais: cor `"1"` importante (verde), `"2"`
+  excelência (amarelo), padrão comum (azul); símbolo (★ 🛸 🌀) aparece no mapa
+  quando a pista é coletada.
+- `PISTAS_POR_CENA` — o que cada cena oferece (pistas-chave se repetem nas
+  cenas seguintes até serem coletadas — o "transbordo").
+- `TEXTOS_CENAS` — narrativa fixa das 5 cenas, com as pistas destacadas
+  `[ENTRE COLCHETES]`.
+- `desfechoDe(ultimaPista)` — classificador único de desfecho.
+- `textoDesfecho(...)` / `epilogoDesfecho(...)` — os textos de resultado e os
+  epílogos narrativos dos 5 finais (a derrota inclui feedback do que faltou).
 
 ### `Jogo`
-> **O coração do sistema.** Controla o fluxo: login, cenas, validação, relatório e reinício. Não faz IO diretamente — sempre delega ao `Terminal`.
-
-**Como os caminhos anteriores são preservados:** A cada `reiniciar()`, o jogo salva um snapshot do histórico atual em `todosCaminhos` antes de limpar a `ListaEncadeada`. No final da sessão, `imprimirRelatorio()` percorre essa lista e mostra todos os caminhos tentados.
+> **As regras.** Controla o fluxo e não contém nenhum texto narrativo.
 
 | Método | O que faz |
 |---|---|
-| `iniciar()` | Faz o login, consulta o histórico do jogador via `persistencia.carregarHistorico()`, monta a `Arvore` com o gabarito e entra no loop de cenas. |
-| `rodarCenas()` | Para cada cena, chama `getPistasDisponiveis()` na Árvore, exibe o menu, lê a escolha e insere na `ListaEncadeada`. Ao final de cada cena, checa se houve Game Over. |
-| `verificarGameOver()` | Verifica se a última pista inserida não tem filhos na Árvore (beco sem saída). Retorna `true` se o jogo terminou. |
-| `reiniciar()` | Salva `historico.toArray()` em `todosCaminhos`, incrementa `tentativas`, limpa o histórico (`historico = new ListaEncadeada()`) e volta ao início de `rodarCenas()`. |
-| `imprimirRelatorio(boolean venceu)` | Exibe todos os caminhos tentados e o resultado final (ver seção 4). Depois chama `persistencia.salvar()`. |
-
----
+| `iniciar()` | Limpa a tela, faz login, carrega o histórico salvo (`carregarHistorico` para exibir + `carregarCaminhos` para semear `todasTentativas`), monta o gabarito e entra no loop. |
+| `montarGabarito()` | Um loop sobre `Roteiro.PISTAS` alimentando a `Arvore` — a árvore vira a fonte única das pistas (até título e descrição são consultados nela). |
+| `rodarCenas()` | Para cada cena: pausa, texto, menu filtrado, escolha, descrição pintada, registro no histórico. Ao fim: `Roteiro.desfechoDe(historico.getUltimaPista())` → relatório → revanche. |
+| `montarMenuDaCena(cena)` | Lista da cena filtrada: sem duplicatas, sem coletadas, só com pré-requisito cumprido (`Arvore.getPistasDisponiveis`). |
+| `lerEscolha(menu)` | Só aceita número válido; entrada inválida avisa e repete. |
+| `imprimirRelatorio(desfecho)` | Epílogo → pausa → relatório unificado (todas as tentativas, com rótulo derivado de `desfechoDe`) → mapa ASCII colorido → resultado → `persistencia.salvar()`. |
+| `reiniciar()` | Pergunta s/n; se sim, zera o histórico e roda as cenas de novo. |
+| `historicoDaSessao()` | Agrega as pistas de todas as tentativas (sem repetição) para o mapa colorir tudo que já foi percorrido. |
+| `venceuComExcelencia()` | `true` se a dupla `AUXILIARES` está no histórico da partida. |
 
 ### `Pista`
-> **Objeto de dados puro.** Representa uma evidência. Não tem lógica — apenas armazena informação.
-
-```java
-Pista faca = new Pista("faca", "Faca de cozinha", "Uma faca com manchas escuras na lâmina.");
-```
-
-Ter a classe `Pista` permite que a `Arvore` carregue o texto da evidência junto com o nó. O `Jogo` lê a descrição diretamente do nó e exibe ao jogador — sem `if/switch` gigante.
-
----
+> **Modelo de dado com o papel visual embutido.** `cor` (0 comum/azul,
+> 1 importante/verde, 2 excelência/amarelo) e `simbolo` vêm da tabela do
+> Roteiro; `pintar(texto)` aplica o ANSI da cor — a regra de pintura vive
+> num lugar só e é usada pelo mapa e pela descrição da pista escolhida.
 
 ### `ListaEncadeada` e `NoLista`
-> **Estrutura de dados nº 1.** Registra cronologicamente todas as pistas coletadas pelo jogador — é o "histórico da investigação".
-
-Cada escolha do jogador é adicionada ao final da lista com `inserirPista(id)`. Ao exibir o relatório, `imprimirHistorico()` mostra:
-
-```
-[faca] -> [impressao_digital] -> [suspeito_capturado] -> FIM
-```
-
-**Por que `contemPista(String id)` existe:** A `Arvore` precisa saber se o jogador já coletou determinada pista antes de liberar as próximas. Em vez de receber a lista inteira e navegar por ela mesma, a `Arvore` simplesmente pergunta: *"você contém essa pista?"* e recebe um `boolean`. As duas estruturas permanecem independentes.
-
-**Por que `toArray()` existe:** Quando o jogo reinicia, a `ListaEncadeada` é zerada. Para não perder o caminho anterior, o `Jogo` chama `toArray()` e guarda o snapshot em `todosCaminhos` antes de limpar.
+> **Estrutura de dados nº 1.** O histórico cronológico da investigação.
 
 | Método | O que faz |
 |---|---|
-| `inserirPista(String id)` | Cria um `NoLista` com o id e adiciona no fim da lista. |
-| `contemPista(String id)` | Percorre a lista e retorna `true` se o id foi encontrado. |
-| `toArray()` | Retorna todas as pistas coletadas como um array de Strings. Usado pelo `Jogo` para salvar o caminho antes de reiniciar. |
-| `imprimirHistorico()` | Imprime todas as pistas no formato `A -> B -> C -> FIM`. |
-
----
+| `inserirPista(id)` | Adiciona no fim da lista. |
+| `contemPista(id)` | `true` se o id já foi coletado (é o que a Árvore consulta). |
+| `formatarHistorico()` | `"[a] -> [b] -> FIM"` (a exibição é do chamador, via Terminal). |
+| `getUltimaPista()` | Id da última coletada (`null` se vazia) — define o desfecho. |
+| `adicionarSeNaoExistir(outra)` | União sem repetição (usada pelo mapa da sessão). |
 
 ### `Arvore` e `NoArvore`
-> **Estrutura de dados nº 2.** É o gabarito do caso. Define quais pistas existem, quais dependem de quais, e qual é o caminho correto.
-
-Cada `NoArvore` guarda uma `Pista` e uma lista de filhos. Os filhos de um nó só ficam acessíveis se a pista do nó pai já foi coletada. Exemplo de como o gabarito é estruturado:
-
-```
-Raiz (nó inicial, sem pista)
-├── NÓ: "faca"
-│   ├── NÓ: "impressao_digital"   ← caminho correto → leva à vitória
-│   └── NÓ: "marca_de_bota"       ← caminho errado → Game Over
-└── NÓ: "janela_arrombada"
-    └── NÓ: "fibra_de_tecido"     ← caminho errado → Game Over
-```
-
-**Como o `getPistasDisponiveis()` funciona:** A `Arvore` percorre todos os seus nós e, para cada um, pergunta à `ListaEncadeada` se o nó pai já foi coletado. Se sim, a pista daquele nó entra na lista de disponíveis. O `Jogo` usa essa lista para montar o menu de cada cena dinamicamente.
+> **Estrutura de dados nº 2.** O gabarito do caso: raiz sentinela sem pista;
+> filhos de um nó só ficam disponíveis quando o pai entra no histórico.
 
 | Método | O que faz |
 |---|---|
-| `inserirDependencia(String idPai, Pista filha)` | Localiza o nó `idPai` via `buscarNo()` e adiciona `filha` como filho. É assim que o gabarito é montado em `iniciar()`. |
-| `getPistasDisponiveis(ListaEncadeada historico)` | Retorna todas as pistas cujo nó pai já está no histórico. Encapsula a lógica de acesso — não existe método `verificarAcesso` separado. |
-| `buscarNo(String id)` *(privado)* | Busca recursivamente o nó com o `id` informado. Usado internamente por `inserirDependencia`. |
-
----
+| `inserirDependencia(idPai, filha)` | `null` = filha da raiz; senão localiza o pai via DFS e adiciona. |
+| `buscarPista(id)` | Devolve a `Pista` do nó — a árvore é a fonte única dos dados das pistas. |
+| `getPistasDisponiveis(historico)` | DFS: devolve os **ids** cujos pais já estão no histórico (e que ainda não foram coletados). |
+| `desenharAscii(historico)` | O mapa do caso: a árvore inteira com conectores `├─`/`└─`, colorindo (via `Pista.pintar`) só as pistas presentes no histórico. |
 
 ### `Persistencia`
-> **Responsável por gravar e ler os dados da sessão em arquivo.** É a única classe que toca no sistema de arquivos.
+> **Lembra os jogadores entre sessões.** Única classe que toca o sistema de
+> arquivos. Formato: **um bloco por detetive**, com todas as rotas acumuladas:
 
-O arquivo de persistência (ex: `dados/partidas.txt`) é um registro cumulativo de todas as sessões jogadas. Cada sessão grava um bloco de texto no final do arquivo.
-
-**Por que isso fecha o requisito de login:** Ao fazer login, o `Jogo` chama `persistencia.carregarHistorico(nomeJogador)`. Se o jogador já jogou antes, o sistema exibe suas últimas partidas antes de começar — dando ao login um propósito real além de pedir um nome.
+```
+>>> DETETIVE: nome
+Tentativas: N
+Último Resultado: Caso Solucionado | Investigação Mal Sucedida
+  Caminho 1: [a] -> [b] -> FIM
+  ...
+----------------------------------------
+```
 
 | Método | O que faz |
 |---|---|
-| `Persistencia(String caminhoArquivo)` | Recebe o caminho do arquivo onde os dados serão gravados/lidos (ex: `"dados/partidas.txt"`). Cria o arquivo e a pasta se não existirem. |
-| `salvar(String nomeJogador, int tentativas, List<String[]> caminhos, boolean venceu)` | Grava o resultado da sessão no arquivo: nome, data/hora, número de tentativas, todos os caminhos percorridos e o resultado. |
-| `carregarHistorico(String nomeJogador)` | Lê o arquivo e retorna o histórico de partidas daquele jogador como texto formatado. Retorna uma string vazia se for a primeira vez. |
+| `Persistencia(caminho)` | Cria diretório e arquivo se não existirem. |
+| `salvar(nome, todasTentativas, venceu)` | **Reescreve o arquivo inteiro**: blocos dos outros detetives intactos + bloco atualizado do jogador. |
+| `carregarHistorico(nome)` | O bloco do jogador como texto (exibido no login); `""` na primeira vez. |
+| `carregarCaminhos(nome)` | Reconstrói as `ListaEncadeada` das rotas salvas — semeia `todasTentativas` no login, por isso `salvar()` não precisa de merge. |
 
 ---
 
-## 4. O Relatório Final
+## 5. O Fluxo de Uma Partida
 
-O método `imprimirRelatorio(boolean venceu)` no `Jogo` exibe um bloco formatado com **todos os caminhos tentados na sessão**, não apenas o último. Em seguida, persiste os dados chamando `persistencia.salvar()`.
+```
+Main → Terminal → Jogo.iniciar()
+  limparTela → login → histórico salvo (exibe + carrega caminhos)
+  montarGabarito (tabela do Roteiro → Arvore)
+  rodarCenas:  ┌ 5× [ENTER+limpa → cena → menu filtrado → escolha → registro]
+               └ desfecho = Roteiro.desfechoDe(última pista)
+  epílogo narrativo → ENTER+limpa → relatório unificado + mapa → salvar
+  revanche? (s = zera o histórico e repete; n = encerra)
+```
 
-**Exemplo: jogador errou na 1ª tentativa e acertou na 2ª**
+Desfechos possíveis (função da última pista): `celular_esquecido` → **vitória**
+(com badge de excelência se coletou registro + testemunho do zelador);
+`luz_estranha` → **abdução**; `mural_conspiracao` → **loucura**; qualquer
+outra → **derrota** (com feedback do elo que faltou).
+
+---
+
+## 6. O Relatório Final
+
+Após o epílogo, `imprimirRelatorio(int desfecho)` exibe **todas as tentativas
+do jogador** (unificadas entre sessões — por isso não há carimbo de data) e o
+mapa do caso:
+
 ```
 ============================================
          RELATÓRIO DE INVESTIGAÇÃO
 ============================================
-Detetive  : Andre
+Detetive  : Marple
 Tentativas: 2
-Data/Hora : 2026-06-28 14:32
 
 --- Tentativa 1 (FALHOU) ---
-  [faca] -> [marca_de_bota] -> FIM
-  ✗ "marca_de_bota" levou a um beco sem saída.
+  [luvas_latex] -> [gaveta] -> [email_ameaca] -> [contrato_concorrente] -> [endereco_secreto] -> FIM
+  ✗ "Endereço no Contrato" levou a um beco sem saída.
 
 --- Tentativa 2 (SUCESSO) ---
-  [faca] -> [impressao_digital] -> [suspeito_capturado] -> FIM
+  [cracha] -> [camera] -> [email_ameaca] -> [contrato_concorrente] -> [celular_esquecido] -> FIM
 
-Resultado : CASO RESOLVIDO — Suspeito identificado!
+MAPA DO CASO:
+  Toda pista COLORIDA já foi investigada por você.
+  verde: pista-chave | amarelo: excelência | azul: pista comum
+
+├─ Crachá de Acesso            ← colorido conforme o rastro do jogador
+│  └─ Câmera de Segurança
+│     ├─ Revirar Tudo ★
+│     ...
+
+Resultado : CASO RESOLVIDO — o Dr. Almeida forjou o próprio sumiço.
 ============================================
 ```
 
-O relatório usa exclusivamente os dados já armazenados nas estruturas:
-- **Nome e tentativas** → atributos do `Jogo`
-- **Todos os caminhos** → `List<String[]> todosCaminhos`, populada a cada `reiniciar()`
-- **Caminho final** → `historico.toArray()` da última rodada
-- **Data/hora** → `LocalDateTime.now()` do Java padrão
-
-Após exibir, o `Jogo` chama `persistencia.salvar()` para gravar tudo em arquivo.
+Rótulo de cada tentativa = `Roteiro.desfechoDe(última pista do caminho)`:
+`SUCESSO`, `FINAL ALTERNATIVO` (sem linha de beco — finais malucos são
+celebrados) ou `FALHOU` (+ linha de beco sem saída).
 
 ---
 
-## 5. Divisão de Tarefas — Final de Semana
+## 7. Como Compilar, Rodar e Testar
 
-### Módulo 1 — Estruturas de Dados (Desenvolvedor A)
-**Arquivos:** `Pista.java`, `NoLista.java`, `ListaEncadeada.java`, `NoArvore.java`, `Arvore.java`
+```bash
+# compilar
+javac -d bin $(find src -name "*.java")
 
-- Implementar `Pista` (só atributos e construtor).
-- Implementar `NoLista` e `ListaEncadeada` com todos os métodos listados na seção 3.
-- Implementar `NoArvore` e `Arvore`, incluindo o método **privado** `buscarNo()`.
-- Testar localmente antes de subir no repositório: inserir pistas na lista e confirmar que `contemPista()` e `toArray()` funcionam; montar uma árvore pequena e confirmar que `getPistasDisponiveis()` retorna os nós corretos.
+# jogar no teclado
+java -cp bin Main
 
-**Prazo:** Sábado de manhã.
+# rodar um script de teste (uma entrada por linha: nome, escolhas, s/n)
+java -cp bin Main test_inputs/vitoria.txt
+```
 
----
+Scripts disponíveis em `test_inputs/` (cobrem os 5 desfechos + revanche):
 
-### Módulo 2 — Motor do Jogo e Narrativa (Desenvolvedor B)
-**Arquivos:** `Jogo.java`
+| Script | O que exercita |
+|---|---|
+| `vitoria.txt` | Caminho da vitória direto (crachá → câmera → Revirar Tudo). |
+| `excelencia.txt` | Vitória + badge (registro na C3, zelador na C4). |
+| `abducao.txt` | Trilha maluca da janela (🛸). |
+| `loucura.txt` | Trilha maluca do café (🌀). |
+| `derrota.txt` | Só distrações → arquivo morto, com feedback. |
+| `revanche.txt` | Derrota → `s` → vitória (exercita `reiniciar()` e o relatório com múltiplas tentativas). |
 
-- Escrever o roteiro: textos das 3 cenas e descrições das pistas (vão para os objetos `Pista`).
-- Dentro de `iniciar()`, montar a `Arvore` com `inserirDependencia()` — este é o gabarito do caso.
-- Implementar `rodarCenas()`, `verificarGameOver()`, `reiniciar()` (com o snapshot em `todosCaminhos`) e `imprimirRelatorio()`.
-- Não usar `Scanner` ou `System.out.println` diretamente — sempre `terminal.lerEntrada()` e `terminal.exibir()`.
-
-**Prazo:** Sábado de manhã (narrativa e estrutura do loop). Integração no Sábado à tarde.
-
----
-
-### Módulo 3 — Interface, IO, Scripts e Persistência (Desenvolvedor C)
-**Arquivos:** `Terminal.java`, `Main.java`, `Persistencia.java`, `test_inputs/vitoria.txt`, `test_inputs/derrota.txt`
-
-- Implementar `Terminal` conforme descrito na seção 3.
-- Implementar `Persistencia`: criar o arquivo de dados se não existir, gravar e ler sessões por nome de jogador.
-- Implementar `Main`: ler `args[0]` (se existir), criar `Terminal`, `Persistencia` e `Jogo`, chamar `iniciar()`.
-- Criar os arquivos de script: `vitoria.txt` e `derrota.txt`.
-
-**Prazo:** Sábado de manhã — **os scripts de teste e a `Persistencia` devem estar prontos antes da integração**.
-
----
-
-### Integração e Testes (Todos Juntos)
-
-**Sábado à tarde:**
-1. Dev A entrega as estruturas no repositório.
-2. Dev B e C integram na `Main` e no `Jogo`.
-3. Rodar `java Main test_inputs/vitoria.txt` e `java Main test_inputs/derrota.txt` para validar o fluxo completo, incluindo a geração do arquivo de dados.
-4. Verificar se o arquivo de persistência foi criado e se `carregarHistorico()` retorna o histórico corretamente no próximo login.
-
-**Domingo:**
-- Garantir estabilidade do `reiniciar()` — jogar, perder, reiniciar, jogar de novo, conferir o relatório com os dois caminhos.
-- Polir a apresentação visual no terminal (separadores, arte ASCII, mensagens de Game Over).
-- Ensaiar a apresentação usando o modo automatizado.
+No modo script as pausas de ENTER e a limpeza de tela são puladas
+automaticamente — os arquivos **não** precisam de linhas em branco extras.

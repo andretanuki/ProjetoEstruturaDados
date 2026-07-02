@@ -2,7 +2,7 @@ package engine;
 
 import estruturadados.ListaEncadeada;
 
-// ROTEIRO — todo o CONTEÚDO do caso num lugar só: constantes, a tabela de
+// ROTEIRO - todo o CONTEÚDO do caso num lugar só: constantes, a tabela de
 // pistas, as listas por cena, os textos das cenas e dos desfechos. Só dados —
 // nenhuma regra de jogo vive aqui.
 public class Roteiro {
@@ -40,9 +40,7 @@ public class Roteiro {
         return DESFECHO_DERROTA;
     }
 
-    // ===== TABELA DO GABARITO: { pai, id, título, descrição[, cor][, símbolo] } =====
-    // Colunas 5 e 6 são opcionais: cor "0" comum/azul (padrão), "1" importante/verde,
-    // "2" excelência/amarelo; símbolo é anexado ao título no mapa quando coletada.
+    // TABELA DO GABARITO: { pai, id, título, descrição, cor(opcional), símbolo(opcional) }
     public static final String[][] PISTAS = {
         {null, "cracha", "Crachá de Acesso", "O crachá do Dr. Almeida está caído perto da porta, e a leitura registrou uma entrada às 23h40 — bem depois de o prédio ter sido esvaziado. O que será que ele veio fazer tão tarde? Alguém viu alguma coisa?", "1"},
         {"cracha", "camera", "Câmera de Segurança", "Puxando as imagens do horário do crachá, a câmera do corredor mostra o Dr. Almeida entrando sozinho, tenso, olhando para trás. Ninguém o forçou — ele voltou por vontade própria. Num detalhe curioso, ele larga algo sobre a mesa antes de sair pela última vez. Valeria procurar o que ficou ali.", "1"},
@@ -168,7 +166,7 @@ public class Roteiro {
         }
     }
 
-    // Centraliza um título "=== x ===" em relação à largura da moldura do telefone.
+    // Centraliza um título em relação à largura da moldura do telefone.
     private static String tituloCentralizado(String titulo) {
         String texto = "=== " + titulo + " ===";
         int espacos = Math.max(0, (MOLDURA_TOP.length() - texto.length()) / 2);

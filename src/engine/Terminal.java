@@ -12,7 +12,7 @@ public class Terminal {
     private Scanner scanner;
     private BufferedReader leitorArquivo;
 
-    // Com arquivo: entradas vêm do script (modo teste); sem: vêm do teclado.
+    // Com arquivo: entradas vêm do script (modo teste); sem: vêm do teclado via Scanner.
     public Terminal(String arquivoInput) {
         if (arquivoInput != null) {
             try {
@@ -26,7 +26,7 @@ public class Terminal {
         }
     }
 
-    // Lê a próxima entrada — do script (ecoando na tela) ou do teclado.
+    // Lê a próxima entrada - Linha do Arquivo ou Scanner.nextLine
     public String lerEntrada() {
         if (leitorArquivo != null) {
             try {
@@ -42,13 +42,12 @@ public class Terminal {
         return scanner.nextLine();
     }
 
-    // Imprime uma linha na tela.
+    // Imprime uma linha na tela. Alias para PrintLn Basicamente
     public void exibir(String texto) {
         System.out.println(texto);
     }
 
-    // Limpa a tela (código ANSI). No modo script não faz nada, para não
-    // poluir a saída capturada pelos testes.
+    // Limpa a tela. No modo script não faz nada
     public void limparTela() {
         if (leitorArquivo != null) {
             return;
@@ -68,7 +67,7 @@ public class Terminal {
         limparTela();
     }
 
-    // Tela de identificação: exibe o cabeçalho e lê o nome do detetive.
+    // Tela de identificação: Exibe o cabeçalho do Jogo e lê o nome do detetive.
     public String loginUsuario() {
         exibir("=======================================");
         exibir("       SISTEMA DE INVESTIGAÇÃO         ");

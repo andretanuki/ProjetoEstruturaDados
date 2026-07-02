@@ -5,27 +5,24 @@ import estruturadados.ListaEncadeada;
 import java.util.ArrayList;
 import java.util.List;
 
-// JOGO — as regras: fluxo das 5 cenas, menu filtrado pela Arvore, registro
-// do caminho na ListaEncadeada, desfecho e relatório. Nenhum texto narrativo
-// vive aqui — conteúdo é papel do Roteiro.
+// JOGO - regras: fluxo das 5 cenas, menu atual filtrado pela Arvore, registro
+// do caminho na ListaEncadeada, desfecho e relatório. 
+// Os textos Narrativos ficam todos em Roteiro.java
+
 public class Jogo {
 
     // [ListaEncadeada historico]
     // Armazena a sequência de pistas que o jogador escolheu durante a partida.
-    // É uma lista encadeada simples onde cada nó aponta para a próxima pista coletada.
     private ListaEncadeada historico;
 
     // [Arvore dependencias]
-    // Representa o mapa do jogo, onde cada nó é uma pista e seus filhos são 
-    // as pistas que são desbloqueadas após coletá-la.
+    // Representa o mapa do jogo, onde cada nó é uma pista e seus filhos são as pistas que são desbloqueadas após coletá-la.
     private Arvore dependencias;
     
     private Terminal terminal;
     private Persistencia persistencia;
-    
     private String nomeJogador;
     private List<ListaEncadeada> todasTentativas = new ArrayList<>();
-
     private String[] textosCenas;
 
     // Liga o jogo às suas dependências: terminal, persistência e estruturas vazias.
@@ -38,7 +35,7 @@ public class Jogo {
     }
 
     // Ponto de entrada: login, carrega o histórico salvo, monta o gabarito
-    // e inicia o loop de cenas.
+    // e inicia o loop de cenas [parte principal]
     public void iniciar() {
         terminal.limparTela();
         nomeJogador = terminal.loginUsuario();
@@ -58,9 +55,10 @@ public class Jogo {
         rodarCenas();
     }
 
-    // Loop principal: a cada cena — pausa, texto, menu filtrado pela árvore,
+    // Loop principal: a cada cena pausa, texto, menu filtrado pela árvore,
     // escolha do jogador e registro no histórico; ao fim das 5 cenas, decide
-    // o desfecho, exibe o relatório e oferece a revanche.
+    // o desfecho, exibe o relatório e oferece a restart.
+
     private void rodarCenas() {
         for (int cena = 0; cena < textosCenas.length; cena++) {
             terminal.aguardarEnterELimpar();
@@ -83,12 +81,10 @@ public class Jogo {
             terminal.exibir("\n>> " + escolhida.titulo);
             // Descrição pintada com a cor do papel da pista.
             terminal.exibir("   " + escolhida.pintar(escolhida.descricao));
-
             // [ListaEncadeada historico]
             // A pista escolhida é inserida no final da lista encadeada.
             historico.inserirPista(idEscolhido);
         }
-
         terminal.aguardarEnterELimpar();
         // O desfecho é uma função da última pista coletada.
         int desfecho = Roteiro.desfechoDe(historico.getUltimaPista());
@@ -136,11 +132,11 @@ public class Jogo {
         terminal.exibir("  Toda pista COLORIDA já foi investigada por você.");
         terminal.exibir("  verde: pista-chave | amarelo: excelência | azul: pista comum");
         terminal.exibir("");
-        
+
         // [Arvore dependencias]
-        // Percorre a árvore de dependências comparando com a lista encadeada do histórico da sessão
-        // para imprimir o mapa completo, colorindo os nós que estão presentes no histórico.
-        terminal.exibir(dependencias.desenharAscii(historicoDaSessao()));
+        // Percorre a árvore de dependências comparando com a lista encadeada do histórico 
+        // para imprimir o mapa completo, colorindo os nós que estão presentes no histórico geral.
+        terminal.exibir(dependencias.desenharAscii(historicoDeTentativas()));
 
         terminal.exibir("Resultado : " + Roteiro.textoDesfecho(desfecho, venceuComExcelencia()));
         terminal.exibir("============================================");
@@ -148,7 +144,7 @@ public class Jogo {
         persistencia.salvar(nomeJogador, todasTentativas, desfecho == Roteiro.DESFECHO_VITORIA);
     }
 
-    // Oferece nova partida: zera o histórico e roda as 5 cenas de novo.
+    // Oferece nova partida: zera o histórico atual e roda as 5 cenas de novo.
     private void reiniciar() {
         terminal.exibir("\nQuer investigar o caso de novo, por outro caminho? (s/n)");
         String resposta = terminal.lerEntrada();
@@ -161,11 +157,8 @@ public class Jogo {
         }
     }
 
+    // Popula a árvore a partir da tabela do Roteiro
     private void montarGabarito() {
-        // [Arvore dependencias]
-        // Popula a árvore a partir da tabela do Roteiro: cada linha diz quem é
-        // o pai (cor e símbolo vêm das colunas opcionais 5 e 6). A árvore é a
-        // fonte única das pistas — até título e descrição são consultados nela.
         for (String[] linha : Roteiro.PISTAS) {
             Pista pista = new Pista(linha[1], linha[2], linha[3]);
             if (linha.length > 4) pista.cor = Integer.parseInt(linha[4]);
@@ -175,16 +168,16 @@ public class Jogo {
         textosCenas = Roteiro.TEXTOS_CENAS;
     }
 
-    // Menu da cena = lista fixa da cena mantendo só as pistas selecionáveis:
+    // Menu da cena é uma lista fixa da cena que mantem só as pistas selecionáveis:
     // sem duplicatas, sem já coletadas e com o pré-requisito cumprido na árvore.
     private List<String> montarMenuDaCena(int cena) {
-        List<String> disponiveis = dependencias.getPistasDisponiveis(historico);
+        List<String> disponiveis = dependencias.getPistasDisponiveis(historico);//<- metodo importante
 
         List<String> menu = new ArrayList<>();
         for (String id : Roteiro.PISTAS_POR_CENA[cena]) {
-            if (menu.contains(id)) continue;                 // sem duplicatas
-            if (historico.contemPista(id)) continue;         // já coletada
-            if (!disponiveis.contains(id)) continue;         // pré-requisito não cumprido
+            if (menu.contains(id)) continue;        // sem duplicatas
+            if (historico.contemPista(id)) continue;// já coletada
+            if (!disponiveis.contains(id)) continue;// pré-requisito não cumprido
             menu.add(id);
         }
         return menu;
@@ -210,22 +203,9 @@ public class Jogo {
         }
     }
 
-    private int verificarGameOver() {
-        if (historico.contemPista(Roteiro.PISTA_FINAL)) {
-            return Roteiro.DESFECHO_VITORIA;
-        }
-        if (historico.contemPista(Roteiro.NETA_ABDUCAO)) {
-            return Roteiro.DESFECHO_ABDUCAO;
-        }
-        if (historico.contemPista(Roteiro.NETA_LOUCURA)) {
-            return Roteiro.DESFECHO_LOUCURA;
-        }
-        return Roteiro.DESFECHO_DERROTA;
-    }
-
     // Agrega as pistas de todas as tentativas (sem repetição) numa lista só,
     // para o mapa colorir tudo que o jogador já percorreu.
-    private ListaEncadeada historicoDaSessao() {
+    private ListaEncadeada historicoDeTentativas() {
         ListaEncadeada agregado = new ListaEncadeada();
         for (ListaEncadeada caminho : todasTentativas) {
             agregado.adicionarSeNaoExistir(caminho);

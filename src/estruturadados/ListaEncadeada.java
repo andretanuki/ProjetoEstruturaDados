@@ -1,6 +1,6 @@
 package estruturadados;
 
-// LISTA ENCADEADA — registra, em ordem, o caminho de pistas do jogador:
+// LISTA ENCADEADA - registra, em ordem, o caminho de pistas do jogador:
 // cada nó aponta para a próxima pista coletada.
 public class ListaEncadeada {
 
