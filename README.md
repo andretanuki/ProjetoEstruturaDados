@@ -62,6 +62,12 @@ Observações:
 - Todos os argumentos continuam funcionando iguais: `java -cp build Main -e`, `java -cp build Main test_inputs/vitoria.txt`, etc.
 - Execute sempre da raiz do repositório para que o save (`dados/partidas.txt`) seja criado/lido no mesmo lugar em todas as formas de execução.
 
+**No Windows**, esse mesmo passo de compilar + executar está automatizado no script `jogo_compatibilidade.bat`, incluído no projeto para quem tem Java 8 a 21 (não suporta o atalho de arquivo único usado pelo `jogo.bat`):
+```bat
+jogo_compatibilidade.bat
+```
+Ele recompila o projeto para a pasta `bin/` a cada execução e repassa os mesmos argumentos: `jogo_compatibilidade.bat -e` ou `jogo_compatibilidade.bat test_inputs\vitoria.txt`.
+
 ## 📁 Estrutura de Diretórios
 
 - `/src/engine`: Motor do jogo, regras, roteiro e abstração de Terminal.

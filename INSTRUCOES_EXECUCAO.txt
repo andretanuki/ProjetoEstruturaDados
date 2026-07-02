@@ -51,3 +51,21 @@ Caso prefira compilar antes de executar:
     javac -d build src/Main.java src/engine/*.java src/estruturadados/*.java
     java -cp build Main
 
+Os parâmetros descritos acima funcionam da mesma forma nesta
+modalidade.
+
+4. COMPATIBILIDADE COM JAVA ANTIGO (WINDOWS)
+---------------------------------------------
+O jogo.bat depende do modo de execução por arquivo único do Java,
+disponível apenas a partir do Java 22. Em máquinas com uma versão
+mais antiga (Java 8 a 21), use o script alternativo incluído:
+
+    jogo_compatibilidade.bat
+
+Ele compila o projeto para a pasta bin/ a cada execução e então
+executa a partir das classes geradas, dispensando o modo de arquivo
+único. Aceita os mesmos parâmetros e argumentos descritos na seção 2:
+
+    Exemplo:  jogo_compatibilidade.bat -e
+              jogo_compatibilidade.bat test_inputs\vitoria.txt
+
