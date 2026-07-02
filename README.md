@@ -59,7 +59,7 @@ java -cp build Main
 ```
 
 Observações:
-- Todos os argumentos continuam funcionando iguais: `java -cp build Main -c`, `java -cp build Main test_inputs/vitoria.txt`, etc.
+- Todos os argumentos continuam funcionando iguais: `java -cp build Main -e`, `java -cp build Main test_inputs/vitoria.txt`, etc.
 - Execute sempre da raiz do repositório para que o save (`dados/partidas.txt`) seja criado/lido no mesmo lugar em todas as formas de execução.
 
 ## 📁 Estrutura de Diretórios
