@@ -22,6 +22,13 @@ Para iniciar a investigação normalmente pelo seu teclado, execute:
 java ./src/Main.java
 ```
 
+### 🎨 Modo Colorido (Opcional)
+Por padrão o jogo imprime texto puro, compatível com qualquer terminal. Se o seu terminal suporta códigos ANSI e emojis, ative as cores das pistas, a limpeza de tela e os símbolos especiais com a flag `-c` (ou `--color`):
+```bash
+java ./src/Main.java -c
+```
+A flag também pode ser combinada com o modo automático: `java ./src/Main.java -c test_inputs/vitoria.txt`
+
 ### ⚡ Modo Automático (Testes de Múltiplos Finais)
 Graças à injeção de I/O na classe `Terminal`, o jogo pode jogar a si próprio lendo arquivos pré-gravados. Isso é extremamente útil para testes contínuos ou para pular rapidamente para um dos finais possíveis da narrativa.
 
@@ -33,6 +40,22 @@ Basta passar o caminho de um arquivo `.txt` como argumento:
 - 🌀 **Final Secreto (Loucura Total):** `java ./src/Main.java test_inputs/loucura.txt`
 - 🔴 **Derrota Investigativa:** `java ./src/Main.java test_inputs/derrota.txt`
 - 🔄 **Revanche (Falhar e tentar novamente):** `java ./src/Main.java test_inputs/revanche.txt`
+
+### ☕ Versões Antigas do Java (Alternativa)
+O atalho `java ./src/Main.java` compila o projeto inteiro em memória e exige **Java 22 ou superior**. Em versões mais antigas (Java 8 a 21), compile manualmente com `javac` e execute a partir das classes geradas — sempre a partir da **raiz do repositório**:
+
+```bash
+# 1. Compilar (gera as classes no diretório build/, já ignorado pelo git)
+javac -encoding UTF-8 -d build src/Main.java src/engine/*.java src/estruturadados/*.java
+
+# 2. Executar
+java -cp build Main
+```
+
+Observações:
+- O `-encoding UTF-8` é importante: os textos do jogo têm acentuação e, sem ele, Javas antigos podem compilar com a codificação padrão do sistema e corromper os caracteres (especialmente no Windows).
+- Todos os argumentos continuam funcionando iguais: `java -cp build Main -c`, `java -cp build Main test_inputs/vitoria.txt`, etc.
+- Execute sempre da raiz do repositório para que o save (`dados/partidas.txt`) seja criado/lido no mesmo lugar em todas as formas de execução.
 
 ## 📁 Estrutura de Diretórios
 

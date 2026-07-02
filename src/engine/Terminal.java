@@ -5,9 +5,13 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Scanner;
 
-// TERMINAL — toda a entrada e saída de tela passa por aqui: teclado ou
+// TERMINAL - toda a entrada e saída de tela passa por aqui: teclado ou
 // arquivo de script (test_inputs/), pausas e limpeza de tela.
 public class Terminal {
+
+    // Cores e emojis são ativaveis pela flag -c/--color
+    // Para lidar com incompatibilidade de terminais
+    public static boolean formatacaoAtiva = false;
 
     private Scanner scanner;
     private BufferedReader leitorArquivo;
@@ -27,6 +31,7 @@ public class Terminal {
     }
 
     // Lê a próxima entrada - Linha do Arquivo ou Scanner.nextLine
+    // Informa se o script acabar antes do fim do jogo
     public String lerEntrada() {
         if (leitorArquivo != null) {
             try {
@@ -38,18 +43,35 @@ public class Terminal {
             } catch (IOException e) {
                 System.err.println("Erro ao ler do arquivo: " + e.getMessage());
             }
+            System.err.println("Script de entrada terminou antes do fim do jogo.");
+            System.exit(1);
         }
         return scanner.nextLine();
     }
 
     // Imprime uma linha na tela. Alias para PrintLn Basicamente
     public void exibir(String texto) {
-        System.out.println(texto);
+        System.out.println(formatacaoAtiva ? texto : semEmojis(texto));
     }
 
-    // Limpa a tela. No modo script não faz nada
+    // Sem formatação, troca os símbolos decorativos por equivalentes ASCII
+    // (nem toda fonte de terminal desenha emoji).
+    private String semEmojis(String texto) {
+        return texto.replace("☎", "#")
+                    .replace("★", "*")
+                    .replace("✗", "x")
+                    .replace("🛸", "(ovni)")
+                    .replace("🌀", "(espiral)");
+    }
+
+    // Limpa a tela. No modo script não faz nada; sem formatação só separa
+    // com uma linha em branco (o escape de limpeza também é código ANSI).
     public void limparTela() {
         if (leitorArquivo != null) {
+            return;
+        }
+        if (!formatacaoAtiva) {
+            System.out.println();
             return;
         }
         System.out.print("\033[H\033[2J");

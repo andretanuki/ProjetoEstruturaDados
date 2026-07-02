@@ -129,8 +129,12 @@ public class Jogo {
         }
 
         terminal.exibir("MAPA DO CASO:");
-        terminal.exibir("  Toda pista COLORIDA já foi investigada por você.");
-        terminal.exibir("  verde: pista-chave | amarelo: excelência | azul: pista comum");
+        if (Terminal.formatacaoAtiva) {
+            terminal.exibir("  Toda pista COLORIDA já foi investigada por você.");
+            terminal.exibir("  verde: pista-chave | amarelo: excelência | azul: pista comum");
+        } else {
+            terminal.exibir("  Toda pista marcada com [x] já foi investigada por você.");
+        }
         terminal.exibir("");
 
         // [Arvore dependencias]

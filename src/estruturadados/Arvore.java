@@ -1,6 +1,7 @@
 package estruturadados;
 
 import engine.Pista;
+import engine.Terminal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,7 +53,7 @@ public class Arvore {
         }
     }
 
-    // Busca o nó com o id informado, ou null (busca em profundidade, DFS).
+    // Busca o nó com o id informado, ou null 
     private NoArvore buscarNo(NoArvore atual, String id) {
         if (atual != raiz && atual.pista.id.equals(id)) {
             return atual;
@@ -68,7 +69,7 @@ public class Arvore {
 
     // MÉTODOS VISUAIS E DE DESENHO (Para o relatório no Terminal)
 
-    // Desenha a árvore inteira em ASCII, realçando o rastro do jogador.
+    // Desenha a árvore inteira 
     public String desenharAscii(ListaEncadeada historico) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < raiz.filhos.size(); i++) {
@@ -103,6 +104,9 @@ public class Arvore {
         }
         if (!pista.simbolo.isEmpty()) {
             rotulo = rotulo + " " + pista.simbolo;
+        }
+        if (!Terminal.formatacaoAtiva) {
+            return rotulo + " [x]"; // sem cor, a marca [x] indica "investigada"
         }
         return pista.pintar(rotulo);
     }
