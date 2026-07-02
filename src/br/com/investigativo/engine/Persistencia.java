@@ -116,8 +116,9 @@ public class Persistencia {
         return historico.toString();
     }
 
-    // Extrai as rotas do bloco do jogador, sem o prefixo "  Caminho N: "
-    // (renumeradas na regravação); vazia se ele ainda não tem bloco.
+    // Extrai só as rotas ("[a] -> [b] -> FIM") do bloco do jogador, sem o
+    // prefixo "  Caminho N: " — elas são renumeradas na regravação.
+    // Lista vazia se o jogador ainda não tem bloco no arquivo.
     private List<String> extrairRotas(String nomeJogador) {
         List<String> rotas = new ArrayList<>();
         for (String linha : carregarHistorico(nomeJogador).split("\n")) {
@@ -129,6 +130,27 @@ public class Persistencia {
             }
         }
         return rotas;
+    }
+
+    // Devolve os caminhos de sessões anteriores do jogador como List<String[]>,
+    // para que o Jogo possa pré-popular o mapa de cores com o histórico completo.
+    // Cada String[] contém os ids das pistas coletadas naquele caminho, sem "FIM".
+    // Exemplo: "[cracha] -> [camera] -> FIM" -> {"cracha", "camera"}
+    public List<String[]> carregarCaminhos(String nomeJogador) {
+        List<String[]> caminhos = new ArrayList<>();
+        for (String rota : extrairRotas(nomeJogador)) {
+            String[] partes = rota.split(" -> ");
+            List<String> ids = new ArrayList<>();
+            for (String parte : partes) {
+                if (parte.startsWith("[") && parte.endsWith("]")) {
+                    ids.add(parte.substring(1, parte.length() - 1));
+                }
+            }
+            if (!ids.isEmpty()) {
+                caminhos.add(ids.toArray(new String[0]));
+            }
+        }
+        return caminhos;
     }
 
     // Conteúdo do arquivo SEM o bloco do jogador (preserva os outros detetives).

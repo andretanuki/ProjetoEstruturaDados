@@ -113,16 +113,21 @@ public class Arvore {
         if (simbolo != null) {
             rotulo = rotulo + " " + simbolo;
         }
-        // Cor por papel: amarelo (excelência) > verde (importante) > azul (comum).
+        return pintar(pista.id, rotulo, estilo);
+    }
+
+    // Pinta um texto com a cor do papel da pista, seguindo o código de cores
+    // do jogo: amarelo (excelência) > verde (importante) > azul (comum).
+    public static String pintar(String idPista, String texto, EstiloMapa estilo) {
         String cor;
-        if (estilo.auxiliares.contains(pista.id)) {
+        if (estilo.auxiliares.contains(idPista)) {
             cor = ANSI_AMARELO;
-        } else if (estilo.importantes.contains(pista.id)) {
+        } else if (estilo.importantes.contains(idPista)) {
             cor = ANSI_VERDE;
         } else {
             cor = ANSI_AZUL;
         }
-        return cor + rotulo + ANSI_RESET;
+        return cor + texto + ANSI_RESET;
     }
 
     // Busca o nó com o id informado, ou null. Parte dos FILHOS da raiz: a

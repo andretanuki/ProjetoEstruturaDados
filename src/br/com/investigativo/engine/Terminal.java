@@ -42,6 +42,27 @@ public class Terminal {
         System.out.println(texto);
     }
 
+    // Limpa a tela (código ANSI). No modo script não faz nada, para não
+    // poluir a saída capturada pelos testes.
+    public void limparTela() {
+        if (leitorArquivo != null) {
+            return;
+        }
+        System.out.print("\033[H\033[2J");
+        System.out.flush();
+    }
+
+    // Pausa até o jogador pressionar ENTER e limpa a tela. No modo script
+    // não faz nada: não consome linhas do arquivo de teste.
+    public void aguardarEnterELimpar() {
+        if (leitorArquivo != null) {
+            return;
+        }
+        System.out.println("\n[ Pressione ENTER para continuar ]");
+        scanner.nextLine();
+        limparTela();
+    }
+
     public String loginUsuario() {
         exibir("=======================================");
         exibir("       SISTEMA DE INVESTIGAÇÃO         ");

@@ -6,8 +6,11 @@ import br.com.investigativo.model.Pista;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class Jogo {
@@ -19,14 +22,17 @@ public class Jogo {
     private String nomeJogador;
     private int tentativas;
     private List<String[]> todosCaminhos;
+    // Caminhos de sessões ANTERIORES, carregados no login.
+    // Usados APENAS para colorir o mapa — não entram no relatório da sessão atual.
+    private List<String[]> caminhosPreviaosSessao = new ArrayList<>();
+    // id -> Pista com título e descrição (preenchido a partir da tabela PISTAS).
+    private Map<String, Pista> textosPistas = new HashMap<>();
 
-    // Roteiro fixo: papéis das pistas e regras do menu em docs/Notas_de_Design.md.
+    // DEFINIÇÃO DO ROTEIRO FIXO
     private String[] textosCenas;
     private String[][] pistasPorCena;
-    // Separador visual impresso antes de cada cena.
     private static final String SEPARADOR_CENA =
         "  ════════════════════════════════════════════════════════════════════";
-    // Moldura do bloco ☎ TELEFONE — usada nas cenas e nos epílogos.
     private static final String MOLDURA_TOP =
         "  .----------------------------- ☎ TELEFONE -----------------------------.";
     private static final String MOLDURA_BOT =
@@ -51,6 +57,7 @@ public class Jogo {
 
     // Ponto de entrada: login, carrega histórico, monta gabarito, inicia loop
     public void iniciar() {
+        terminal.limparTela();
         nomeJogador = terminal.loginUsuario();
 
         String historicoAnterior = persistencia.carregarHistorico(nomeJogador);
@@ -58,6 +65,9 @@ public class Jogo {
             terminal.exibir("\n=== Bem-vindo de volta, " + nomeJogador + "! ===");
             terminal.exibir("Suas partidas anteriores:");
             terminal.exibir(historicoAnterior);
+            // Carrega os caminhos anteriores para o mapa de cores incluir
+            // o histórico completo do jogador, não só a sessão atual.
+            caminhosPreviaosSessao = persistencia.carregarCaminhos(nomeJogador);
         } else {
             terminal.exibir("\n=== Bem-vindo, Detetive " + nomeJogador + "! ===");
             terminal.exibir("Primeira vez jogando. Boa sorte!");
@@ -67,138 +77,98 @@ public class Jogo {
         rodarCenas();
     }
 
-    // Monta o roteiro do caso (desaparecimento do Dr. Almeida): árvore de
-    // dependências, textos das pistas/cenas e listas de pistas por cena.
+    // Monta o roteiro do caso (desaparecimento do Dr. Almeida) em 3 passos.
     private void montarGabarito() {
-        // --- Trilha SÉRIA: cracha -> camera -> celular_esquecido (final) ---
-        dependencias.inserirDependencia(null, new Pista("cracha", "Crachá de Acesso", ""));
-        dependencias.inserirDependencia("cracha", new Pista("camera", "Câmera de Segurança", ""));
-        // Filha de camera (ter camera implica ter cracha); só oferecida na C5.
-        dependencias.inserirDependencia("camera", new Pista(PISTA_FINAL, "Celular Esquecido", ""));
-        // Auxiliares (fora do caminho da vitória):
-        dependencias.inserirDependencia("camera", new Pista("registro_saida", "Registro de Saída", ""));
-        dependencias.inserirDependencia("registro_saida", new Pista("extrato_bancario", "Extrato Bancário", ""));
-        dependencias.inserirDependencia("camera", new Pista("testemunho_zelador", "Testemunho do Zelador", ""));
+        montarArvoreETextos();   // alimenta a Arvore e os textos das pistas
+        montarTextosDasCenas();  // narrativa fixa das 5 cenas
+        montarListasPorCena();   // quais pistas cada cena oferece
+    }
 
-        // --- Trilhas malucas (pai -> filho -> neto) ---
-        // ABDUÇÃO: janela_forcada(C1/C3) -> vidro_quebrado(C4) -> luz_estranha(C5)
-        dependencias.inserirDependencia(null, new Pista("janela_forcada", "Janela Forçada", ""));
-        dependencias.inserirDependencia("janela_forcada", new Pista("vidro_quebrado", "Estilhaços de Vidro", ""));
-        dependencias.inserirDependencia("vidro_quebrado", new Pista(NETA_ABDUCAO, "Luz Estranha no Estacionamento", ""));
+    // ===== TABELA DO GABARITO: { pai, id, título, descrição } =====
+    // Fonte única de cada pista. A ordem importa: todo pai vem antes dos
+    // filhos, e a sequência das linhas com pai null define a ordem do mapa.
+    private static final String[][] PISTAS = {
+        // Trilha SÉRIA: cracha -> camera -> celular_esquecido (vitória)
+        {null, "cracha", "Crachá de Acesso", "O crachá do Dr. Almeida está caído perto da porta, e a leitura registrou uma entrada às 23h40 — bem depois de o prédio ter sido esvaziado. O que será que ele veio fazer tão tarde? Alguém viu alguma coisa?"},
+        {"cracha", "camera", "Câmera de Segurança", "Puxando as imagens do horário do crachá, a câmera do corredor mostra o Dr. Almeida entrando sozinho, tenso, olhando para trás. Ninguém o forçou — ele voltou por vontade própria. Num detalhe curioso, ele larga algo sobre a mesa antes de sair pela última vez. Valeria procurar o que ficou ali."},
+        {"camera", PISTA_FINAL, "Revirar Tudo", "Sem cerimônia, você revira cada gaveta, pasta e bolso da sala — e é aí que ela aparece, quase escondida sobre a mesa: o próprio CELULAR do Dr. Almeida, largado de propósito para não ser rastreado. Nas mensagens não enviadas, ele planeja o sumiço e a nova vida com a pesquisa no bolso. Não houve sequestro — ele forjou tudo. CASO RESOLVIDO!"},
+        // Auxiliares (fora do caminho da vitória)
+        {"camera", "registro_saida", "Registro de Saída", "O livro da portaria confirma o Dr. Almeida saindo às 00h15 com uma caixa lacrada de amostras. Não muda a conclusão, mas prova no papel que ele saiu por conta própria levando o material."},
+        {"registro_saida", "extrato_bancario", "Extrato Bancário", "No extrato, um gasto salta aos olhos: uma passagem só de ida para o exterior, comprada em dinheiro semanas antes do sumiço. Ninguém que planeja voltar paga assim. Não é a prova final, mas é o retrato de uma fuga ensaiada com frieza — e um belo troféu para quem quer fechar o caso com chave de ouro."},
+        {"camera", "testemunho_zelador", "Testemunho do Zelador", "O zelador o viu sair apressado com uma caixa, murmurando 'não posso mais ficar aqui'. Não prova nada sozinho, mas dá cor à fuga: ele parecia aliviado, não coagido."},
+        // Trilha ABDUÇÃO: janela_forcada(C1/C3) -> vidro_quebrado(C4) -> luz_estranha(C5)
+        {null, "janela_forcada", "Janela Forçada", "A janela fica no 4º andar, sem sacada nem escada: ninguém entrou por aqui. Só um vidro velho que cedeu — a não ser por uma marca de queimadura estranha num dos cacos, que ninguém soube explicar."},
+        {"janela_forcada", "vidro_quebrado", "Estilhaços de Vidro", "A perícia diz que o vidro trincou sozinho — mas a marca de queimadura é perfeitamente radial, como se algo incandescente tivesse pairado rente à janela. E há um círculo de grama chamuscada bem embaixo, no gramado. A física não fecha aqui."},
+        {"vidro_quebrado", NETA_ABDUCAO, "Luz Estranha no Estacionamento", "Você segue a trilha de queimaduras até o estacionamento e encontra um círculo chamuscado perfeito no asfalto. Ao erguer os olhos, um facho de luz te envolve..."},
+        // Trilha LOUCURA: copo_cafe(C1/C3) -> bilhete_manchado(C4) -> mural_conspiracao(C5)
+        {null, "copo_cafe", "Copo de Café Abandonado", "O copo de café era da faxineira, que confirma tê-lo esquecido ali. Nada a ver com o caso — embora as manchas secas no fundo formem um desenho curiosamente simétrico, quase proposital."},
+        {"copo_cafe", "bilhete_manchado", "Bilhete Manchado de Café", "O número é de uma pizzaria — mas as manchas de café desenham um padrão que parece... um mapa? E, sozinho no corredor, você jura ter ouvido um sussurro dizer o nome do Dr. Almeida. Você já não tem tanta certeza de que é imaginação."},
+        {"bilhete_manchado", NETA_LOUCURA, "Mural da Conspiração", "As mensagens que só você enxerga te levam a forrar a parede inteira da sala de provas com fotos e barbante vermelho, ligando o caso a coisas cada vez mais absurdas..."},
+        // Distrações da Cena 1 (toda distração é filha direta da raiz)
+        {null, "luvas_latex", "Luvas de Látex Descartadas", "As luvas de látex na lixeira são idênticas às que o laboratório usa aos montes todo dia. Perfeitamente comuns aqui — não dizem nada."},
+        // Distrações da Cena 2
+        {null, "gaveta", "Gaveta da Mesa", "Você abre a gaveta — e, no fim das contas, devemos seguir os conselhos dos mais velhos. Lá dentro só há coisas pessoais do Dr. Almeida: um cartão de Dia das Mães ainda por enviar, algumas fotos de família, um chaveiro velho. Será que ele era um filhinho da mamãe? Mas não vem ao caso!"},
+        {null, "exame_pericial", "Exame Pericial da Sala", "O laudo pericial da sala não achou digitais estranhas nem sinais de luta. Tudo aponta para uma saída tranquila — nada de arrombamento."},
+        {null, "foto_corredor", "Foto do Corredor", "Uma foto antiga do corredor pregada no mural: era só decoração institucional, dessas de aniversário do departamento. Irrelevante."},
+        {null, "agenda_mesa", "Agenda sobre a Mesa", "A agenda de mesa está aberta num compromisso banal: 'reunião de colegiado, 14h'. Nada de anormal nas anotações."},
+        // Distrações da Cena 3
+        {null, "email_ameaca", "E-mail de Ameaça", "O 'e-mail de ameaça' era spam automático de um golpe conhecido, disparado para centenas de pessoas na mesma noite. Nem pessoal nem real. Descartado."},
+        {null, "recibo_taxi", "Recibo de Táxi", "O recibo de táxi é de duas semanas atrás e está no nome de outro professor. Entrou na pilha por engano. Irrelevante."},
+        {null, "jornal_velho", "Jornal Velho", "Um jornal amarelado largado sobre o arquivo, com notícias de meses atrás. Só serventia de papel de embrulho. Nada a ver com o caso."},
+        {null, "cartao_visita", "Cartão de Visita", "Um cartão de visita de um representante de material de laboratório. Contato comercial de rotina — sem relevância."},
+        // Distrações da Cena 4
+        {null, "contrato_concorrente", "Contrato com o Concorrente", "O 'contrato' com o concorrente era só uma proposta de parceria pública, protocolada e aprovada pela reitoria meses atrás. Legítimo e sem segredo. Descartado."},
+        {null, "historico_ligacoes", "Histórico de Ligações", "As ligações repetidas eram todas para o consultório do dentista, remarcando uma consulta. Rotina pessoal. Irrelevante."},
+        {null, "turno_seguranca", "Escala do Turno de Segurança", "O turno de segurança daquela noite estava normal, todos presentes, sem ocorrências além da já conhecida. Não acrescenta nada."},
+        {null, "relato_vizinho", "Relato do Vizinho", "Um vizinho do laboratório reclamou de barulho, mas era da obra do prédio ao lado, no horário comercial. Sem ligação com o sumiço."},
+        // Distrações da Cena 5
+        {null, "endereco_secreto", "Endereço no Contrato", "O 'endereço secreto' era o do depósito oficial da universidade, que consta em dezenas de documentos públicos. Nada de secreto. Beco sem saída."},
+        {null, "confissao_gravada", "Confissão Gravada", "A 'confissão' gravada era um trecho de um podcast de crime que o dono do celular ouvia no carro. Ficção. Descartada."},
+        {null, "mapa_local", "Mapa Rabiscado", "O mapa rabiscado era o trajeto de corrida matinal de um funcionário, com horários de pace anotados. Nada a ver com o caso."},
+        {null, "depoimento_familia", "Depoimento da Família", "A família relata tensão nos últimos dias, mas não sabe de nada concreto. A mamãe do Dr. Almeida, entre lágrimas, faz questão de dizer que ama muito ele. Comovente — mas sem qualquer informação que aponte um rumo."}
+    };
 
-        // LOUCURA: copo_cafe(C1/C3) -> bilhete_manchado(C4) -> mural_conspiracao(C5)
-        dependencias.inserirDependencia(null, new Pista("copo_cafe", "Copo de Café Abandonado", ""));
-        dependencias.inserirDependencia("copo_cafe", new Pista("bilhete_manchado", "Bilhete Manchado de Café", ""));
-        dependencias.inserirDependencia("bilhete_manchado", new Pista(NETA_LOUCURA, "Mural da Conspiração", ""));
-
-        // --- Distrações: todas filhas diretas da raiz, 4 reservadas por cena ---
-        for (String id : new String[]{
-                "luvas_latex",                                             // C1
-                "gaveta", "exame_pericial", "foto_corredor", "agenda_mesa",   // C2
-                "email_ameaca", "recibo_taxi", "jornal_velho", "cartao_visita",       // C3
-                "contrato_concorrente", "historico_ligacoes", "turno_seguranca", "relato_vizinho", // C4
-                "endereco_secreto", "confissao_gravada", "mapa_local", "depoimento_familia"}) {      // C5
-            dependencias.inserirDependencia(null, new Pista(id, id, ""));
+    // Um único loop alimenta a Arvore de dependências E os textos das pistas:
+    // a árvore guarda a hierarquia; textosPistas, o título e a descrição.
+    private void montarArvoreETextos() {
+        for (String[] p : PISTAS) {
+            dependencias.inserirDependencia(p[0], new Pista(p[1], p[2], ""));
+            textosPistas.put(p[1], new Pista(p[1], p[2], p[3]));
         }
+    }
 
-        // ===== TEXTOS DAS PISTAS (título + descrição exibida ao investigar) =====
+    // Centraliza um título ("=== titulo ===") em relação à largura da
+    // moldura do telefone.
+    private static String tituloCentralizado(String titulo) {
+        String texto = "=== " + titulo + " ===";
+        int espacos = Math.max(0, (MOLDURA_TOP.length() - texto.length()) / 2);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < espacos; i++) {
+            sb.append(' ');
+        }
+        return sb.append(texto).toString();
+    }
 
-        // --- Trilha SÉRIA ---
-        registrarTextoPista("cracha", "Crachá de Acesso",
-                "O crachá do Dr. Almeida está caído perto da porta, e a leitura registrou uma entrada às 23h40 — bem depois de o prédio ter sido esvaziado. O que será que ele veio fazer tão tarde? Alguém viu alguma coisa?");
-        registrarTextoPista("camera", "Câmera de Segurança",
-                "Puxando as imagens do horário do crachá, a câmera do corredor mostra o Dr. Almeida entrando sozinho, tenso, olhando para trás. Ninguém o forçou — ele voltou por vontade própria. Num detalhe curioso, ele larga algo sobre a mesa antes de sair pela última vez. Valeria procurar o que ficou ali.");
-        registrarTextoPista("registro_saida", "Registro de Saída",
-                "O livro da portaria confirma o Dr. Almeida saindo às 00h15 com uma caixa lacrada de amostras. Não muda a conclusão, mas prova no papel que ele saiu por conta própria levando o material.");
-        registrarTextoPista("testemunho_zelador", "Testemunho do Zelador",
-                "O zelador o viu sair apressado com uma caixa, murmurando 'não posso mais ficar aqui'. Não prova nada sozinho, mas dá cor à fuga: ele parecia aliviado, não coagido.");
-        registrarTextoPista("extrato_bancario", "Extrato Bancário",
-                "No extrato, um gasto salta aos olhos: uma passagem só de ida para o exterior, comprada em dinheiro semanas antes do sumiço. Ninguém que planeja voltar paga assim. Não é a prova final, mas é o retrato de uma fuga ensaiada com frieza — e um belo troféu para quem quer fechar o caso com chave de ouro.");
-        // Pista final séria: no menu aparece como ação ("Revirar Tudo").
-        registrarTextoPista(PISTA_FINAL, "Revirar Tudo",
-                "Sem cerimônia, você revira cada gaveta, pasta e bolso da sala — e é aí que ela aparece, quase escondida sobre a mesa: o próprio CELULAR do Dr. Almeida, largado de propósito para não ser rastreado. Nas mensagens não enviadas, ele planeja o sumiço e a nova vida com a pesquisa no bolso. Não houve sequestro — ele forjou tudo. CASO RESOLVIDO!");
-
-        // --- Trilha ABDUÇÃO (janela -> vidro -> luz) ---
-        registrarTextoPista("janela_forcada", "Janela Forçada",
-                "A janela fica no 4º andar, sem sacada nem escada: ninguém entrou por aqui. Só um vidro velho que cedeu — a não ser por uma marca de queimadura estranha num dos cacos, que ninguém soube explicar.");
-        registrarTextoPista("vidro_quebrado", "Estilhaços de Vidro",
-                "A perícia diz que o vidro trincou sozinho — mas a marca de queimadura é perfeitamente radial, como se algo incandescente tivesse pairado rente à janela. E há um círculo de grama chamuscada bem embaixo, no gramado. A física não fecha aqui.");
-        registrarTextoPista(NETA_ABDUCAO, "Luz Estranha no Estacionamento",
-                "Você segue a trilha de queimaduras até o estacionamento e encontra um círculo chamuscado perfeito no asfalto. Ao erguer os olhos, um facho de luz te envolve...");
-
-        // --- Trilha LOUCURA (copo -> bilhete -> mural) ---
-        registrarTextoPista("copo_cafe", "Copo de Café Abandonado",
-                "O copo de café era da faxineira, que confirma tê-lo esquecido ali. Nada a ver com o caso — embora as manchas secas no fundo formem um desenho curiosamente simétrico, quase proposital.");
-        registrarTextoPista("bilhete_manchado", "Bilhete Manchado de Café",
-                "O número é de uma pizzaria — mas as manchas de café desenham um padrão que parece... um mapa? E, sozinho no corredor, você jura ter ouvido um sussurro dizer o nome do Dr. Almeida. Você já não tem tanta certeza de que é imaginação.");
-        registrarTextoPista(NETA_LOUCURA, "Mural da Conspiração",
-                "As mensagens que só você enxerga te levam a forrar a parede inteira da sala de provas com fotos e barbante vermelho, ligando o caso a coisas cada vez mais absurdas...");
-
-        // --- Distrações da Cena 1 ---
-        registrarTextoPista("luvas_latex", "Luvas de Látex Descartadas",
-                "As luvas de látex na lixeira são idênticas às que o laboratório usa aos montes todo dia. Perfeitamente comuns aqui — não dizem nada.");
-
-        // --- Distrações da Cena 2 ---
-        registrarTextoPista("gaveta", "Gaveta da Mesa",
-                "Você abre a gaveta — e, no fim das contas, devemos seguir os conselhos dos mais velhos. Lá dentro só há coisas pessoais do Dr. Almeida: um cartão de Dia das Mães ainda por enviar, algumas fotos de família, um chaveiro velho. Será que ele era um filhinho da mamãe? Mas não vem ao caso!");
-        registrarTextoPista("exame_pericial", "Exame Pericial da Sala",
-                "O laudo pericial da sala não achou digitais estranhas nem sinais de luta. Tudo aponta para uma saída tranquila — nada de arrombamento.");
-        registrarTextoPista("foto_corredor", "Foto do Corredor",
-                "Uma foto antiga do corredor pregada no mural: era só decoração institucional, dessas de aniversário do departamento. Irrelevante.");
-        registrarTextoPista("agenda_mesa", "Agenda sobre a Mesa",
-                "A agenda de mesa está aberta num compromisso banal: 'reunião de colegiado, 14h'. Nada de anormal nas anotações.");
-
-        // --- Distrações da Cena 3 ---
-        registrarTextoPista("email_ameaca", "E-mail de Ameaça",
-                "O 'e-mail de ameaça' era spam automático de um golpe conhecido, disparado para centenas de pessoas na mesma noite. Nem pessoal nem real. Descartado.");
-        registrarTextoPista("recibo_taxi", "Recibo de Táxi",
-                "O recibo de táxi é de duas semanas atrás e está no nome de outro professor. Entrou na pilha por engano. Irrelevante.");
-        registrarTextoPista("jornal_velho", "Jornal Velho",
-                "Um jornal amarelado largado sobre o arquivo, com notícias de meses atrás. Só serventia de papel de embrulho. Nada a ver com o caso.");
-        registrarTextoPista("cartao_visita", "Cartão de Visita",
-                "Um cartão de visita de um representante de material de laboratório. Contato comercial de rotina — sem relevância.");
-
-        // --- Distrações da Cena 4 ---
-        registrarTextoPista("contrato_concorrente", "Contrato com o Concorrente",
-                "O 'contrato' com o concorrente era só uma proposta de parceria pública, protocolada e aprovada pela reitoria meses atrás. Legítimo e sem segredo. Descartado.");
-        registrarTextoPista("historico_ligacoes", "Histórico de Ligações",
-                "As ligações repetidas eram todas para o consultório do dentista, remarcando uma consulta. Rotina pessoal. Irrelevante.");
-        registrarTextoPista("turno_seguranca", "Escala do Turno de Segurança",
-                "O turno de segurança daquela noite estava normal, todos presentes, sem ocorrências além da já conhecida. Não acrescenta nada.");
-        registrarTextoPista("relato_vizinho", "Relato do Vizinho",
-                "Um vizinho do laboratório reclamou de barulho, mas era da obra do prédio ao lado, no horário comercial. Sem ligação com o sumiço.");
-
-        // --- Distrações da Cena 5 ---
-        registrarTextoPista("endereco_secreto", "Endereço no Contrato",
-                "O 'endereço secreto' era o do depósito oficial da universidade, que consta em dezenas de documentos públicos. Nada de secreto. Beco sem saída.");
-        registrarTextoPista("confissao_gravada", "Confissão Gravada",
-                "A 'confissão' gravada era um trecho de um podcast de crime que o dono do celular ouvia no carro. Ficção. Descartada.");
-        registrarTextoPista("mapa_local", "Mapa Rabiscado",
-                "O mapa rabiscado era o trajeto de corrida matinal de um funcionário, com horários de pace anotados. Nada a ver com o caso.");
-        registrarTextoPista("depoimento_familia", "Depoimento da Família",
-                "A família relata tensão nos últimos dias, mas não sabe de nada concreto. A mamãe do Dr. Almeida, entre lágrimas, faz questão de dizer que ama muito ele. Comovente — mas sem qualquer informação que aponte um rumo.");
-
-        // Textos fixos das 5 cenas; cada um menciona em prosa, com destaque
-        // [ENTRE COLCHETES], as pistas selecionáveis daquela cena.
-        String molduraTop  = MOLDURA_TOP;
-        String molduraBot  = MOLDURA_BOT;
+    // Narrativa fixa das 5 cenas; cada texto menciona em prosa, com destaque
+    // [ENTRE COLCHETES], as pistas selecionáveis daquela cena.
+    private void montarTextosDasCenas() {
         textosCenas = new String[]{
-            "=== CENA 1: A Cena do Desaparecimento ===\n"
-                + molduraTop + "\n"
+            tituloCentralizado("CENA 1: A Cena do Desaparecimento") + "\n\n"
+                + MOLDURA_TOP + "\n"
                 + "   CENTRAL: \"Detetive, o Dr. Almeida, o bioquímico, sumiu ontem à noite.\n"
                 + "            A sala tá isolada. Entra e olha tudo.\"\n"
-                + molduraBot + "\n\n"
+                + MOLDURA_BOT + "\n\n"
                 + "A sala do laboratório está exatamente como a segurança a deixou. Perto da\n"
                 + "porta, o [CRACHÁ] do Dr. Almeida está caído, com a última leitura ainda\n"
                 + "registrada no sistema. Nos fundos, uma [JANELA FORÇADA] chama atenção pelo\n"
                 + "estrago. Sobre a recepção, um [COPO DE CAFÉ] esquecido ainda está morno. E na\n"
                 + "lixeira, um par de [LUVAS DE LÁTEX] jogado fora do padrão da equipe. Por onde\n"
                 + "você começa?",
-            "=== CENA 2: A Sala de Segurança ===\n"
-                + molduraTop + "\n"
+            tituloCentralizado("CENA 2: A Sala de Segurança") + "\n\n"
+                + MOLDURA_TOP + "\n"
                 + "   MÃE: \"Filho, você tá comendo direito? E não vai é ficar bisbilhotando\n"
                 + "        GAVETA dos outros, hein!\"\n"
-                + molduraBot + "\n\n"
+                + MOLDURA_BOT + "\n\n"
                 + "Você ri, promete almoçar, e entra na sala de monitoramento com a cabeça no\n"
                 + "lugar. A [CÂMERA] do corredor guarda as imagens da noite, prontas para serem\n"
                 + "cruzadas com o horário do [CRACHÁ] — que, aliás, se você ainda não examinou de\n"
@@ -206,11 +176,11 @@ public class Jogo {
                 + "encara (e, veja só, faz você se lembrar da sua mãe), o [EXAME PERICIAL] da\n"
                 + "sala, uma velha [FOTO DO CORREDOR] no mural e a [AGENDA] do professor. Tudo\n"
                 + "aqui parece sóbrio e concreto. O que você examina?",
-            "=== CENA 3: O Rastro Documental ===\n"
-                + molduraTop + "\n"
+            tituloCentralizado("CENA 3: O Rastro Documental") + "\n\n"
+                + MOLDURA_TOP + "\n"
                 + "   CHEFE (Delegado Canastrão): \"Ê detetive! Já verificou aquele [CRACHÁ] e\n"
                 + "        puxou a [CÂMERA]?! Tem caroço nesse angu, quero isso resolvido ONTEM!\"\n"
-                + molduraBot + "\n\n"
+                + MOLDURA_BOT + "\n\n"
                 + "Ele desliga sem esperar resposta. Você volta à papelada: o [REGISTRO DE\n"
                 + "SAÍDA] da noite, o [TESTEMUNHO DO ZELADOR], um [E-MAIL DE AMEAÇA], um [RECIBO\n"
                 + "DE TÁXI], um [JORNAL VELHO] e um [CARTÃO DE VISITA]. Mas seus olhos teimam em\n"
@@ -218,12 +188,12 @@ public class Jogo {
                 + "os examinou, eles continuam ali, e você sente vibrações estranhas e calafrios\n"
                 + "só de pensar neles. Parecem sussurrar algo que a razão não explica. O que\n"
                 + "merece atenção? ...Sou um investigador ou um caçador de fantasmas, afinal?",
-            "=== CENA 4: O Confronto de Pistas ===\n"
-                + molduraTop + "\n"
+            tituloCentralizado("CENA 4: O Confronto de Pistas") + "\n\n"
+                + MOLDURA_TOP + "\n"
                 + "   TELEMARKETING (CamerAção Ofertas): \"Boa tarde! O senhor não vai querer\n"
                 + "        perder nossa câmera noturna 4K: enxerga TUDO no escuro, até o que as\n"
                 + "        pessoas andam aprontando às 23h41 da madrugada!\"\n"
-                + molduraBot + "\n\n"
+                + MOLDURA_BOT + "\n\n"
                 + "Você quase desliga na cara — mas o horário citado te arrepia (e lembra que a\n"
                 + "[CÂMERA] do prédio ainda pode ter mais a mostrar). Voltando à mesa, um [EXTRATO\n"
                 + "BANCÁRIO] parece ter inconsistências bem marcantes. Ao lado, um [CONTRATO COM O\n"
@@ -231,12 +201,12 @@ public class Jogo {
                 + "[RELATO DO VIZINHO] esperam. Já os [ESTILHAÇOS DE VIDRO] da janela e o [BILHETE\n"
                 + "MANCHADO] do café são inexplicáveis — mas será que precisamos explicar e seguir\n"
                 + "o nosso cérebro? Ou seguir o nosso coração? Em qual você foca?",
-            "=== CENA 5: O Desfecho ===\n"
-                + molduraTop + "\n"
+            tituloCentralizado("CENA 5: O Desfecho") + "\n\n"
+                + MOLDURA_TOP + "\n"
                 + "   CHEFE (furioso): \"DETETIVE! A imprensa tá na porta, o reitor no meu pé, e\n"
                 + "        eu SEM RESPOSTA?! Vira essa sala do avesso, mas me traz uma CONCLUSÃO\n"
                 + "        AGORA!\"\n"
-                + molduraBot + "\n\n"
+                + MOLDURA_BOT + "\n\n"
                 + "Você desliga suando frio. Sobre a mesa há pontas soltas que não levam a nada\n"
                 + "— um [ENDEREÇO] de contrato, uma [CONFISSÃO GRAVADA], um [MAPA RABISCADO], o\n"
                 + "[DEPOIMENTO DA FAMÍLIA]. Você lembra da sua mãe, e da vergonha que passou com\n"
@@ -246,10 +216,11 @@ public class Jogo {
                 + "desafiam o senso comum acertam em cheio — e se você montar o seu [MURAL DA\n"
                 + "CONSPIRAÇÃO]? Qual é a resposta certa?"
         };
+    }
 
-        // Listas fixas de pistas por cena; o menu real é esta lista filtrada
-        // pela árvore (montarMenuDaCena). Composição de cada cena: ver
-        // docs/Notas_de_Design.md, §6.
+    // Listas de pistas por cena; o menu real é esta lista filtrada pela
+    // árvore (montarMenuDaCena). Composição de cada cena: Notas_de_Design §6.
+    private void montarListasPorCena() {
         pistasPorCena = new String[][]{
             // C1: sério (cracha) + 2 iscas malucas + 1 distração
             {"cracha", "janela_forcada", "copo_cafe", "luvas_latex"},
@@ -270,16 +241,11 @@ public class Jogo {
         };
     }
 
-    private java.util.Map<String, Pista> textosPistas = new java.util.HashMap<>();
-
-    private void registrarTextoPista(String id, String titulo, String descricao) {
-        textosPistas.put(id, new Pista(id, titulo, descricao));
-    }
-
     // Loop principal: a cada cena exibe o texto, monta o menu filtrado, lê a
     // escolha e registra no histórico; ao fim decide o desfecho e fecha.
     private void rodarCenas() {
         for (int cena = 0; cena < textosCenas.length; cena++) {
+            terminal.aguardarEnterELimpar();
             terminal.exibir("\n" + SEPARADOR_CENA);
             terminal.exibir(textosCenas[cena]);
 
@@ -298,10 +264,12 @@ public class Jogo {
             String idEscolhido = lerEscolha(menu);
             Pista escolhida = textosPistas.get(idEscolhido);
             terminal.exibir("\n>> " + escolhida.titulo);
-            terminal.exibir("   " + escolhida.descricao);
+            // Descrição pintada com a cor do papel da pista (código de cores do mapa).
+            terminal.exibir("   " + Arvore.pintar(idEscolhido, escolhida.descricao, estiloDoMapa()));
             historico.inserirPista(idEscolhido);
         }
 
+        terminal.aguardarEnterELimpar();
         int desfecho = verificarGameOver();
         imprimirRelatorio(desfecho);
         reiniciar();
@@ -389,6 +357,7 @@ public class Jogo {
 
         // Epílogo antes do relatório: a história fecha colada no clímax.
         terminal.exibir("\n" + epilogoDesfecho(desfecho));
+        terminal.aguardarEnterELimpar();
 
         String dataHora = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
@@ -438,13 +407,18 @@ public class Jogo {
 
     // Agrega as pistas de todos os caminhos da sessão (sem repetição) para o
     // mapa colorir tudo que o jogador já percorreu.
+    // Agrega todas as pistas coletadas na sessão atual + sessões anteriores
+    // numa única ListaEncadeada, para o mapa colorir o histórico completo.
     private ListaEncadeada historicoDaSessao() {
         ListaEncadeada agregado = new ListaEncadeada();
+        for (String[] caminho : caminhosPreviaosSessao) {
+            for (String id : caminho) {
+                if (!agregado.contemPista(id)) agregado.inserirPista(id);
+            }
+        }
         for (String[] caminho : todosCaminhos) {
             for (String id : caminho) {
-                if (!agregado.contemPista(id)) {
-                    agregado.inserirPista(id);
-                }
+                if (!agregado.contemPista(id)) agregado.inserirPista(id);
             }
         }
         return agregado;
@@ -468,10 +442,10 @@ public class Jogo {
         importantes.add(NETA_LOUCURA);
         estilo.importantes = importantes;
 
-        estilo.auxiliares = new HashSet<>(java.util.Arrays.asList(AUXILIARES));
+        estilo.auxiliares = new HashSet<>(Arrays.asList(AUXILIARES));
 
         // Símbolos das pistas-final (só aparecem quando coletadas).
-        java.util.Map<String, String> simbolos = new java.util.HashMap<>();
+        Map<String, String> simbolos = new HashMap<>();
         simbolos.put(PISTA_FINAL, "★");
         simbolos.put(NETA_ABDUCAO, "🛸");
         simbolos.put(NETA_LOUCURA, "🌀");
@@ -481,10 +455,10 @@ public class Jogo {
         return estilo;
     }
 
-    // id -> título legível (a árvore guarda id cru como título nas distrações).
-    private java.util.Map<String, String> titulosDasPistas() {
-        java.util.Map<String, String> titulos = new java.util.HashMap<>();
-        for (java.util.Map.Entry<String, Pista> e : textosPistas.entrySet()) {
+    // id -> título legível, para o mapa ASCII resolver os rótulos.
+    private Map<String, String> titulosDasPistas() {
+        Map<String, String> titulos = new HashMap<>();
+        for (Map.Entry<String, Pista> e : textosPistas.entrySet()) {
             titulos.put(e.getKey(), e.getValue().titulo);
         }
         return titulos;
@@ -531,7 +505,7 @@ public class Jogo {
         switch (desfecho) {
             case DESFECHO_VITORIA:
                 if (venceuComExcelencia()) {
-                    return "=== EPÍLOGO: CASO ENCERRADO COM EXCELÊNCIA ===\n"
+                    return tituloCentralizado("EPÍLOGO: CASO ENCERRADO COM EXCELÊNCIA") + "\n\n"
                         + MOLDURA_TOP + "\n"
                         + "   CHEFE (solene, pigarreando): \"Detetive... o reitor ligou. A imprensa\n"
                         + "        ligou. Minha MÃE ligou. Todos querem saber quem fechou o caso\n"
@@ -544,7 +518,7 @@ public class Jogo {
                         + "da delegacia (o do orgulho, não o da conspiração) — e o zelador conta para\n"
                         + "quem quiser ouvir que sempre soube que você ia longe.";
                 }
-                return "=== EPÍLOGO: CASO ENCERRADO ===\n"
+                return tituloCentralizado("EPÍLOGO: CASO ENCERRADO") + "\n\n"
                     + MOLDURA_TOP + "\n"
                     + "   CHEFE (eufórico): \"Detetive! A federal interceptou o Dr. Almeida no\n"
                     + "        aeroporto — bigode falso, passagem só de ida e a pesquisa na mala.\n"
@@ -556,7 +530,7 @@ public class Jogo {
                     + "certo: o crachá, a câmera, e a coragem de revirar a sala quando todo mundo\n"
                     + "já tinha desistido. O caso vai para a estante dos resolvidos.";
             case DESFECHO_ABDUCAO:
-                return "=== EPÍLOGO: VOO NOTURNO ===\n"
+                return tituloCentralizado("EPÍLOGO: VOO NOTURNO") + "\n\n"
                     + MOLDURA_TOP + "\n"
                     + "   CENTRAL (chiado): \"Detetive?... Detetive, na escuta?... Alô?...\n"
                     + "        ...registrando na ocorrência: paradeiro desconhecido. Última\n"
@@ -569,7 +543,7 @@ public class Jogo {
                     + "sabe a verdade. De todos os detetives do caso Almeida, você foi o único que\n"
                     + "olhou para CIMA. Parabéns: o universo aprova os curiosos.";
             case DESFECHO_LOUCURA:
-                return "=== EPÍLOGO: O MURAL SABE ===\n"
+                return tituloCentralizado("EPÍLOGO: O MURAL SABE") + "\n\n"
                     + MOLDURA_TOP + "\n"
                     + "   ENFERMEIRO (gentil): \"Visita pro senhor! E olha só: trouxemos barbante\n"
                     + "        novinho. Do vermelho. Daquele que o senhor gosta.\"\n"
@@ -581,7 +555,7 @@ public class Jogo {
                     + "mural, o Dr. Almeida parece sorrir para você. Como quem agradece por\n"
                     + "alguém, enfim, ter entendido TUDO.";
             default:
-                return "=== EPÍLOGO: ARQUIVO MORTO ===\n"
+                return tituloCentralizado("EPÍLOGO: ARQUIVO MORTO") + "\n\n"
                     + MOLDURA_TOP + "\n"
                     + "   CHEFE (cansado): \"Sem prova, sem suspeito, sem história pra imprensa.\n"
                     + "        O caso Almeida vai pro arquivo morto, detetive. Vai pra casa.\n"
