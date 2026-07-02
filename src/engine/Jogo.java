@@ -5,6 +5,9 @@ import estruturadados.ListaEncadeada;
 import java.util.ArrayList;
 import java.util.List;
 
+// JOGO — as regras: fluxo das 5 cenas, menu filtrado pela Arvore, registro
+// do caminho na ListaEncadeada, desfecho e relatório. Nenhum texto narrativo
+// vive aqui — conteúdo é papel do Roteiro.
 public class Jogo {
 
     // [ListaEncadeada historico]
@@ -130,7 +133,7 @@ public class Jogo {
         // para imprimir o mapa completo, colorindo os nós que estão presentes no histórico.
         terminal.exibir(dependencias.desenharAscii(historicoDaSessao()));
 
-        terminal.exibir("Resultado : " + textoDesfecho(desfecho));
+        terminal.exibir("Resultado : " + Roteiro.textoDesfecho(desfecho, venceuComExcelencia()));
         terminal.exibir("============================================");
 
         persistencia.salvar(nomeJogador, todasTentativas, desfecho == Roteiro.DESFECHO_VITORIA);
@@ -164,7 +167,7 @@ public class Jogo {
             dependencias.inserirDependencia(linha[0], pista);
             textosPistas[i] = pista;
         }
-        textosCenas = Roteiro.getTextosCenas();
+        textosCenas = Roteiro.TEXTOS_CENAS;
     }
 
     private Pista buscarPistaPorId(String id) {
@@ -178,23 +181,16 @@ public class Jogo {
     }
 
     private List<String> montarMenuDaCena(int cena) {
-        List<Pista> disponiveis = dependencias.getPistasDisponiveis(historico);
+        List<String> disponiveis = dependencias.getPistasDisponiveis(historico);
 
         List<String> menu = new ArrayList<>();
         for (String id : Roteiro.PISTAS_POR_CENA[cena]) {
             if (menu.contains(id)) continue;                 // sem duplicatas
             if (historico.contemPista(id)) continue;         // já coletada
-            if (!contemPistaId(disponiveis, id)) continue;   // pré-requisito não cumprido
+            if (!disponiveis.contains(id)) continue;         // pré-requisito não cumprido
             menu.add(id);
         }
         return menu;
-    }
-
-    private boolean contemPistaId(List<Pista> pistas, String id) {
-        for (Pista p : pistas) {
-            if (p.id.equals(id)) return true;
-        }
-        return false;
     }
 
     private String lerEscolha(List<String> menu) {
@@ -234,21 +230,6 @@ public class Jogo {
             agregado.adicionarSeNaoExistir(caminho);
         }
         return agregado;
-    }
-
-    private String textoDesfecho(int desfecho) {
-        switch (desfecho) {
-            case Roteiro.DESFECHO_VITORIA:
-                return venceuComExcelencia()
-                    ? "CASO RESOLVIDO COM EXCELÊNCIA — nenhuma pista escapou!"
-                    : "CASO RESOLVIDO — o Dr. Almeida forjou o próprio sumiço.";
-            case Roteiro.DESFECHO_ABDUCAO:
-                return "FINAL ALTERNATIVO — Você foi ABDUZIDO investigando o inexplicável!";
-            case Roteiro.DESFECHO_LOUCURA:
-                return "FINAL ALTERNATIVO — Você MERGULHOU NA LOUCURA da conspiração!";
-            default:
-                return "CASO NÃO RESOLVIDO — as pistas certas escaparam desta vez.";
-        }
     }
 
     private boolean venceuComExcelencia() {

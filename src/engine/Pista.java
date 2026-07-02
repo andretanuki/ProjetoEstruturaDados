@@ -1,5 +1,7 @@
 package engine;
 
+// PISTA — o modelo de dado do jogo: id, textos e papel visual (cor/símbolo),
+// com a regra de pintura ANSI embutida.
 public class Pista {
 
     // Códigos ANSI do jogo — a regra de pintura vive num lugar só.

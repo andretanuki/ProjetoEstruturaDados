@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import estruturadados.ListaEncadeada;
 
+// PERSISTENCIA — lembra os jogadores entre sessões: um bloco por detetive
+// num arquivo texto, com todas as rotas acumuladas.
 public class Persistencia {
 
     // Formato: UM bloco por detetive, com todas as rotas acumuladas
@@ -61,40 +63,44 @@ public class Persistencia {
         }
     }
 
+    // Bloco do jogador, como texto pronto para exibir ("" se não existe).
     public String carregarHistorico(String nomeJogador) {
+        return separarBlocos(nomeJogador)[0];
+    }
+
+    // Conteúdo do arquivo SEM o bloco do jogador (preserva os outros detetives).
+    private String lerBlocosExceto(String nomeJogador) {
+        return separarBlocos(nomeJogador)[1];
+    }
+
+    // Varre o arquivo UMA vez e separa: [0] = bloco do jogador, [1] = o resto.
+    private String[] separarBlocos(String nomeJogador) {
+        StringBuilder doJogador = new StringBuilder();
+        StringBuilder dosOutros = new StringBuilder();
         File arquivo = new File(caminhoArquivo);
 
-        if (!arquivo.exists()) {
-            return "";
-        }
+        if (arquivo.exists()) {
+            try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
+                boolean noBlocoDoJogador = false;
+                String linha;
+                while ((linha = br.readLine()) != null) {
+                    if (linha.equals(MARCADOR + nomeJogador)) {
+                        noBlocoDoJogador = true;
+                    } else if (linha.startsWith(MARCADOR)) {
+                        noBlocoDoJogador = false;
+                    }
 
-        StringBuilder historico = new StringBuilder();
-        boolean copiandoBloco = false;
+                    (noBlocoDoJogador ? doJogador : dosOutros).append(linha).append("\n");
 
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
-            String linha;
-
-            while ((linha = br.readLine()) != null) {
-
-                if (linha.equals(MARCADOR + nomeJogador)) {
-                    copiandoBloco = true;
-                } else if (linha.startsWith(MARCADOR)) {
-                    copiandoBloco = false;
-                }
-
-                if (copiandoBloco) {
-                    historico.append(linha).append("\n");
-
-                    if (linha.equals(SEPARADOR)) {
-                        copiandoBloco = false;
+                    if (noBlocoDoJogador && linha.equals(SEPARADOR)) {
+                        noBlocoDoJogador = false; // separador fecha o bloco
                     }
                 }
+            } catch (IOException e) {
+                System.err.println("Erro ao ler o arquivo de partidas: " + e.getMessage());
             }
-        } catch (IOException e) {
-            System.err.println("Erro ao carregar histórico: " + e.getMessage());
         }
-
-        return historico.toString();
+        return new String[]{doJogador.toString(), dosOutros.toString()};
     }
 
     // Reconstrói as ListaEncadeada dos caminhos já salvos do jogador, lendo
@@ -120,38 +126,4 @@ public class Persistencia {
         return caminhos;
     }
 
-    // Conteúdo do arquivo SEM o bloco do jogador (preserva os outros detetives).
-    private String lerBlocosExceto(String nomeJogador) {
-        File arquivo = new File(caminhoArquivo);
-
-        if (!arquivo.exists()) {
-            return "";
-        }
-
-        StringBuilder outros = new StringBuilder();
-        boolean pulandoBloco = false;
-
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
-            String linha;
-
-            while ((linha = br.readLine()) != null) {
-
-                if (linha.equals(MARCADOR + nomeJogador)) {
-                    pulandoBloco = true;
-                } else if (linha.startsWith(MARCADOR)) {
-                    pulandoBloco = false;
-                }
-
-                if (!pulandoBloco) {
-                    outros.append(linha).append("\n");
-                } else if (linha.equals(SEPARADOR)) {
-                    pulandoBloco = false; // separador fecha o bloco pulado
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Erro ao ler dados existentes: " + e.getMessage());
-        }
-
-        return outros.toString();
-    }
 }

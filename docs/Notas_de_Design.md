@@ -159,6 +159,7 @@ esqueleto original (o código já os respeita):
   menu não repetir a pista.
 - Toda folha da árvore deve ser um terminal intencional (vitória/derrota),
   nunca um nó intermediário "pela metade".
-- `ListaEncadeada.imprimirHistorico()` é mantida apenas por conformidade com
-  a API documentada em `Arquitetura_e_Tarefas.md`; o jogo usa
-  `formatarHistorico()` + `Terminal.exibir()` (saída centralizada, ver §1).
+- A lista formata (`formatarHistorico()`), mas nunca imprime: a exibição é
+  sempre via `Terminal.exibir()` (saída centralizada, ver §1). Os métodos
+  legados `imprimirHistorico()`/`toArray()` foram removidos por não terem
+  chamadores após a reorganização de 2026-07-02.

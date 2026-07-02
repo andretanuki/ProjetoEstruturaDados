@@ -4,6 +4,8 @@ import engine.Pista;
 import java.util.ArrayList;
 import java.util.List;
 
+// ARVORE — a estrutura de dependências do caso: cada nó é uma pista e os
+// filhos só ficam disponíveis depois que o pai entra no histórico do jogador.
 public class Arvore {
 
     // A raiz é um nó sentinela sem pista — seus filhos são as pistas iniciais do jogo
@@ -21,21 +23,22 @@ public class Arvore {
         }
     }
 
-    // Retorna todas as pistas cujo nó pai já está no histórico do jogador (Busca em Profundidade DFS)
-    public List<Pista> getPistasDisponiveis(ListaEncadeada historico) {
-        List<Pista> disponiveis = new ArrayList<>();
+    // Retorna os ids das pistas cujo pai já está no histórico do jogador
+    // (Busca em Profundidade — DFS)
+    public List<String> getPistasDisponiveis(ListaEncadeada historico) {
+        List<String> disponiveis = new ArrayList<>();
         coletarPistasDisponiveis(raiz, historico, disponiveis);
         return disponiveis;
     }
 
-    private void coletarPistasDisponiveis(NoArvore atual, ListaEncadeada historico, List<Pista> disponiveis) {
+    private void coletarPistasDisponiveis(NoArvore atual, ListaEncadeada historico, List<String> disponiveis) {
         boolean noAtualColetado = (atual == raiz) || historico.contemPista(atual.pista.id);
         if (!noAtualColetado) {
             return;
         }
         for (NoArvore filho : atual.filhos) {
-            if (!historico.contemPista(filho.pista.id) && !contemId(disponiveis, filho.pista.id)) {
-                disponiveis.add(filho.pista);
+            if (!historico.contemPista(filho.pista.id)) {
+                disponiveis.add(filho.pista.id);
             }
             coletarPistasDisponiveis(filho, historico, disponiveis);
         }
@@ -57,15 +60,6 @@ public class Arvore {
             }
         }
         return null;
-    }
-
-    private boolean contemId(List<Pista> pistas, String id) {
-        for (Pista p : pistas) {
-            if (p.id.equals(id)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     // =========================================================================

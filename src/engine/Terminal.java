@@ -5,6 +5,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Scanner;
 
+// TERMINAL — toda a entrada e saída de tela passa por aqui: teclado ou
+// arquivo de script (test_inputs/), pausas e limpeza de tela.
 public class Terminal {
 
     private Scanner scanner;

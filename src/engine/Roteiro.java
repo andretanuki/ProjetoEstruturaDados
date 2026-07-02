@@ -2,6 +2,9 @@ package engine;
 
 import estruturadados.ListaEncadeada;
 
+// ROTEIRO — todo o CONTEÚDO do caso num lugar só: constantes, a tabela de
+// pistas, as listas por cena, os textos das cenas e dos desfechos. Só dados —
+// nenhuma regra de jogo vive aqui.
 public class Roteiro {
 
     public static final String SEPARADOR_CENA =
@@ -71,8 +74,9 @@ public class Roteiro {
         {"endereco_secreto", "confissao_gravada", "mapa_local", "depoimento_familia", PISTA_FINAL, NETA_ABDUCAO, NETA_LOUCURA}
     };
 
-    public static String[] getTextosCenas() {
-        return new String[]{
+    // Narrativa fixa das 5 cenas; cada texto menciona, com destaque
+    // [ENTRE COLCHETES], as pistas selecionáveis daquela cena.
+    public static final String[] TEXTOS_CENAS = {
             tituloCentralizado("CENA 1: A Cena do Desaparecimento") + "\n\n"
                 + MOLDURA_TOP + "\n"
                 + "   CENTRAL: \"Detetive, o Dr. Almeida, o bioquímico, sumiu ontem à noite.\n"
@@ -135,7 +139,22 @@ public class Roteiro {
                 + "resolvem o caso? De onde vêm aquelas [LUZ ESTRANHA]? Às vezes as ideias que\n"
                 + "desafiam o senso comum acertam em cheio — e se você montar o seu [MURAL DA\n"
                 + "CONSPIRAÇÃO]? Qual é a resposta certa?"
-        };
+    };
+
+    // Linha de resultado exibida no relatório.
+    public static String textoDesfecho(int desfecho, boolean venceuComExcelencia) {
+        switch (desfecho) {
+            case DESFECHO_VITORIA:
+                return venceuComExcelencia
+                    ? "CASO RESOLVIDO COM EXCELÊNCIA — nenhuma pista escapou!"
+                    : "CASO RESOLVIDO — o Dr. Almeida forjou o próprio sumiço.";
+            case DESFECHO_ABDUCAO:
+                return "FINAL ALTERNATIVO — Você foi ABDUZIDO investigando o inexplicável!";
+            case DESFECHO_LOUCURA:
+                return "FINAL ALTERNATIVO — Você MERGULHOU NA LOUCURA da conspiração!";
+            default:
+                return "CASO NÃO RESOLVIDO — as pistas certas escaparam desta vez.";
+        }
     }
 
     private static String tituloCentralizado(String titulo) {

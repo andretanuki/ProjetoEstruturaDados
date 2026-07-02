@@ -1,5 +1,7 @@
 package estruturadados;
 
+// LISTA ENCADEADA — registra, em ordem, o caminho de pistas do jogador:
+// cada nó aponta para a próxima pista coletada.
 public class ListaEncadeada {
 
     private NoLista inicio;
@@ -34,26 +36,7 @@ public class ListaEncadeada {
         return false;
     }
 
-    // Retorna todas as pistas coletadas como array (usado pelo Jogo antes de reiniciar)
-    public String[] toArray() {
-        int tamanho = 0;
-        NoLista atual = inicio;
-        while (atual != null) {
-            tamanho++;
-            atual = atual.proximo;
-        }
-
-        String[] ids = new String[tamanho];
-        atual = inicio;
-        int indice = 0;
-        while (atual != null) {
-            ids[indice] = atual.idPista;
-            indice++;
-            atual = atual.proximo;
-        }
-        return ids;
-    }
-
+    // Formata o caminho no padrão "[a] -> [b] -> FIM"
     public String formatarHistorico() {
         StringBuilder sb = new StringBuilder();
         NoLista atual = inicio;
@@ -74,6 +57,7 @@ public class ListaEncadeada {
         return atual.idPista;
     }
 
+    // Copia para esta lista as pistas de 'outra lista' que ainda não estão aqui
     public void adicionarSeNaoExistir(ListaEncadeada outra) {
         if (outra == null) return;
         NoLista atual = outra.inicio;
@@ -83,10 +67,5 @@ public class ListaEncadeada {
             }
             atual = atual.proximo;
         }
-    }
-
-    // Mantida por conformidade com a API documentada; o jogo usa formatarHistorico().
-    public void imprimirHistorico() {
-        System.out.println(formatarHistorico());
     }
 }
