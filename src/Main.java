@@ -6,6 +6,7 @@ import engine.Terminal;
 // MAIN — liga tudo: cria o Terminal (teclado ou script) e inicia o Jogo.
 public class Main {
 
+    // Decide entre teclado e script, monta o Terminal e dá a partida no Jogo.
     public static void main(String[] args) {
         // Se um arquivo de script for passado como argumento, usa ele no lugar do teclado
         String arquivoInput = (args.length > 0) ? args[0] : null;

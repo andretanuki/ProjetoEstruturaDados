@@ -12,6 +12,7 @@ public class Terminal {
     private Scanner scanner;
     private BufferedReader leitorArquivo;
 
+    // Com arquivo: entradas vêm do script (modo teste); sem: vêm do teclado.
     public Terminal(String arquivoInput) {
         if (arquivoInput != null) {
             try {
@@ -25,6 +26,7 @@ public class Terminal {
         }
     }
 
+    // Lê a próxima entrada — do script (ecoando na tela) ou do teclado.
     public String lerEntrada() {
         if (leitorArquivo != null) {
             try {
@@ -40,6 +42,7 @@ public class Terminal {
         return scanner.nextLine();
     }
 
+    // Imprime uma linha na tela.
     public void exibir(String texto) {
         System.out.println(texto);
     }
@@ -65,6 +68,7 @@ public class Terminal {
         limparTela();
     }
 
+    // Tela de identificação: exibe o cabeçalho e lê o nome do detetive.
     public String loginUsuario() {
         exibir("=======================================");
         exibir("       SISTEMA DE INVESTIGAÇÃO         ");

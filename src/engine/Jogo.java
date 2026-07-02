@@ -25,10 +25,10 @@ public class Jogo {
     
     private String nomeJogador;
     private List<ListaEncadeada> todasTentativas = new ArrayList<>();
-    
-    private Pista[] textosPistas;
+
     private String[] textosCenas;
 
+    // Liga o jogo às suas dependências: terminal, persistência e estruturas vazias.
     public Jogo(Terminal terminal) {
         this.terminal = terminal;
         // O construtor da Persistencia cria o diretório dados/ se não existir.
@@ -37,6 +37,8 @@ public class Jogo {
         this.dependencias = new Arvore();
     }
 
+    // Ponto de entrada: login, carrega o histórico salvo, monta o gabarito
+    // e inicia o loop de cenas.
     public void iniciar() {
         terminal.limparTela();
         nomeJogador = terminal.loginUsuario();
@@ -56,6 +58,9 @@ public class Jogo {
         rodarCenas();
     }
 
+    // Loop principal: a cada cena — pausa, texto, menu filtrado pela árvore,
+    // escolha do jogador e registro no histórico; ao fim das 5 cenas, decide
+    // o desfecho, exibe o relatório e oferece a revanche.
     private void rodarCenas() {
         for (int cena = 0; cena < textosCenas.length; cena++) {
             terminal.aguardarEnterELimpar();
@@ -69,12 +74,12 @@ public class Jogo {
 
             terminal.exibir("\nPISTAS DISPONÍVEIS:");
             for (int i = 0; i < menu.size(); i++) {
-                Pista p = buscarPistaPorId(menu.get(i));
+                Pista p = dependencias.buscarPista(menu.get(i));
                 terminal.exibir("  " + (i + 1) + ". " + p.titulo);
             }
 
             String idEscolhido = lerEscolha(menu);
-            Pista escolhida = buscarPistaPorId(idEscolhido);
+            Pista escolhida = dependencias.buscarPista(idEscolhido);
             terminal.exibir("\n>> " + escolhida.titulo);
             // Descrição pintada com a cor do papel da pista.
             terminal.exibir("   " + escolhida.pintar(escolhida.descricao));
@@ -85,11 +90,14 @@ public class Jogo {
         }
 
         terminal.aguardarEnterELimpar();
-        int desfecho = verificarGameOver();
+        // O desfecho é uma função da última pista coletada.
+        int desfecho = Roteiro.desfechoDe(historico.getUltimaPista());
         imprimirRelatorio(desfecho);
         reiniciar();
     }
 
+    // Exibe o epílogo do desfecho e o relatório unificado (todas as
+    // tentativas do jogador + mapa colorido do caso) e grava na persistência.
     private void imprimirRelatorio(int desfecho) {
         todasTentativas.add(historico);
 
@@ -106,14 +114,15 @@ public class Jogo {
         for (int i = 0; i < todasTentativas.size(); i++) {
             ListaEncadeada caminho = todasTentativas.get(i);
             String ultimaPista = caminho.getUltimaPista();
-            boolean sucesso = Roteiro.PISTA_FINAL.equals(ultimaPista);
-            boolean alternativo = Roteiro.NETA_ABDUCAO.equals(ultimaPista) || Roteiro.NETA_LOUCURA.equals(ultimaPista);
-            String rotulo = sucesso ? "SUCESSO" : (alternativo ? "FINAL ALTERNATIVO" : "FALHOU");
+            int d = Roteiro.desfechoDe(ultimaPista);
+            String rotulo = (d == Roteiro.DESFECHO_VITORIA) ? "SUCESSO"
+                          : (d == Roteiro.DESFECHO_DERROTA) ? "FALHOU"
+                          : "FINAL ALTERNATIVO";
             terminal.exibir("--- Tentativa " + (i + 1) + " (" + rotulo + ") ---");
             terminal.exibir("  " + caminho.formatarHistorico());
-            if (!sucesso && !alternativo) {
+            if (d == Roteiro.DESFECHO_DERROTA) {
                 if (ultimaPista != null) {
-                    Pista p = buscarPistaPorId(ultimaPista);
+                    Pista p = dependencias.buscarPista(ultimaPista);
                     String titulo = (p != null) ? p.titulo : ultimaPista;
                     terminal.exibir("  ✗ \"" + titulo + "\" levou a um beco sem saída.");
                 } else {
@@ -139,6 +148,7 @@ public class Jogo {
         persistencia.salvar(nomeJogador, todasTentativas, desfecho == Roteiro.DESFECHO_VITORIA);
     }
 
+    // Oferece nova partida: zera o histórico e roda as 5 cenas de novo.
     private void reiniciar() {
         terminal.exibir("\nQuer investigar o caso de novo, por outro caminho? (s/n)");
         String resposta = terminal.lerEntrada();
@@ -154,32 +164,19 @@ public class Jogo {
     private void montarGabarito() {
         // [Arvore dependencias]
         // Popula a árvore a partir da tabela do Roteiro: cada linha diz quem é
-        // o pai, e a MESMA Pista vai para a árvore e para o índice de textos
-        // (cor e símbolo também vêm da tabela — colunas opcionais 5 e 6).
-        textosPistas = new Pista[Roteiro.PISTAS.length];
-
-        for (int i = 0; i < Roteiro.PISTAS.length; i++) {
-            String[] linha = Roteiro.PISTAS[i];
+        // o pai (cor e símbolo vêm das colunas opcionais 5 e 6). A árvore é a
+        // fonte única das pistas — até título e descrição são consultados nela.
+        for (String[] linha : Roteiro.PISTAS) {
             Pista pista = new Pista(linha[1], linha[2], linha[3]);
             if (linha.length > 4) pista.cor = Integer.parseInt(linha[4]);
             if (linha.length > 5) pista.simbolo = linha[5];
-
             dependencias.inserirDependencia(linha[0], pista);
-            textosPistas[i] = pista;
         }
         textosCenas = Roteiro.TEXTOS_CENAS;
     }
 
-    private Pista buscarPistaPorId(String id) {
-        if (id == null) return null;
-        for (int i = 0; i < textosPistas.length; i++) {
-            if (textosPistas[i] != null && textosPistas[i].id.equals(id)) {
-                return textosPistas[i];
-            }
-        }
-        return null;
-    }
-
+    // Menu da cena = lista fixa da cena mantendo só as pistas selecionáveis:
+    // sem duplicatas, sem já coletadas e com o pré-requisito cumprido na árvore.
     private List<String> montarMenuDaCena(int cena) {
         List<String> disponiveis = dependencias.getPistasDisponiveis(historico);
 
@@ -193,6 +190,8 @@ public class Jogo {
         return menu;
     }
 
+    // Lê um número válido do menu; entrada inválida avisa e pede de novo,
+    // sem lançar exceção (robusto também no modo script).
     private String lerEscolha(List<String> menu) {
         while (true) {
             terminal.exibir("\nDigite o número da pista que quer investigar:");
@@ -224,6 +223,8 @@ public class Jogo {
         return Roteiro.DESFECHO_DERROTA;
     }
 
+    // Agrega as pistas de todas as tentativas (sem repetição) numa lista só,
+    // para o mapa colorir tudo que o jogador já percorreu.
     private ListaEncadeada historicoDaSessao() {
         ListaEncadeada agregado = new ListaEncadeada();
         for (ListaEncadeada caminho : todasTentativas) {
@@ -232,6 +233,7 @@ public class Jogo {
         return agregado;
     }
 
+    // Excelência = ter coletado a dupla AUXILIARES na partida atual.
     private boolean venceuComExcelencia() {
         for (String aux : Roteiro.AUXILIARES) {
             if (!historico.contemPista(aux)) {

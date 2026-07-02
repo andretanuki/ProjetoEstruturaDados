@@ -23,6 +23,7 @@ public class Persistencia {
 
     private String caminhoArquivo;
 
+    // Garante que o diretório e o arquivo de dados existem.
     public Persistencia(String caminhoArquivo) {
         this.caminhoArquivo = caminhoArquivo;
         File arquivo = new File(caminhoArquivo);
@@ -41,6 +42,8 @@ public class Persistencia {
         }
     }
 
+    // Regrava o arquivo inteiro: blocos dos outros detetives intactos +
+    // bloco atualizado do jogador com todas as tentativas.
     public void salvar(String nomeJogador, List<ListaEncadeada> todasTentativas, boolean venceu) {
 
         String blocosDosOutros = lerBlocosExceto(nomeJogador);

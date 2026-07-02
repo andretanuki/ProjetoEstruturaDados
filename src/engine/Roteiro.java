@@ -31,6 +31,15 @@ public class Roteiro {
     public static final int DESFECHO_ABDUCAO = 2;
     public static final int DESFECHO_LOUCURA = 3;
 
+    // O desfecho é uma função da última pista do caminho: as pistas de
+    // desfecho (celular e netas malucas) só podem ser a 5ª coleta.
+    public static int desfechoDe(String ultimaPista) {
+        if (PISTA_FINAL.equals(ultimaPista))  return DESFECHO_VITORIA;
+        if (NETA_ABDUCAO.equals(ultimaPista)) return DESFECHO_ABDUCAO;
+        if (NETA_LOUCURA.equals(ultimaPista)) return DESFECHO_LOUCURA;
+        return DESFECHO_DERROTA;
+    }
+
     // ===== TABELA DO GABARITO: { pai, id, título, descrição[, cor][, símbolo] } =====
     // Colunas 5 e 6 são opcionais: cor "0" comum/azul (padrão), "1" importante/verde,
     // "2" excelência/amarelo; símbolo é anexado ao título no mapa quando coletada.
@@ -66,6 +75,8 @@ public class Roteiro {
         {null, "depoimento_familia", "Depoimento da Família", "A família relata tensão nos últimos dias, mas não sabe de nada concreto. A mamãe do Dr. Almeida, entre lágrimas, faz questão de dizer que ama muito ele. Comovente — mas sem qualquer informação que aponte um rumo."}
     };
 
+    // Quais pistas cada cena oferece (o menu real é esta lista filtrada pela
+    // árvore); pistas-chave se repetem em cenas seguintes até serem coletadas.
     public static final String[][] PISTAS_POR_CENA = {
         {"cracha", "janela_forcada", "copo_cafe", "luvas_latex"},
         {"gaveta", "exame_pericial", "foto_corredor", "agenda_mesa", "cracha", "camera"},
@@ -157,6 +168,7 @@ public class Roteiro {
         }
     }
 
+    // Centraliza um título "=== x ===" em relação à largura da moldura do telefone.
     private static String tituloCentralizado(String titulo) {
         String texto = "=== " + titulo + " ===";
         int espacos = Math.max(0, (MOLDURA_TOP.length() - texto.length()) / 2);
@@ -167,6 +179,7 @@ public class Roteiro {
         return sb.append(texto).toString();
     }
 
+    // Epílogo narrativo de cada desfecho, no mesmo formato de bloco das cenas.
     public static String epilogoDesfecho(int desfecho, boolean venceuComExcelencia, ListaEncadeada historico) {
         switch (desfecho) {
             case DESFECHO_VITORIA:
@@ -233,6 +246,8 @@ public class Roteiro {
         }
     }
 
+    // Feedback da derrota: aponta o primeiro elo da corrente da vitória
+    // (crachá -> câmera -> celular) que faltou no histórico.
     private static String feedbackDerrota(ListaEncadeada historico) {
         if (!historico.contemPista(PRE_REQUISITOS[0])) {
             return "A perícia foi direta no arquivamento: ninguém examinou o crachá caído\n"

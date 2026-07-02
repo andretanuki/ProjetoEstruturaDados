@@ -11,16 +11,24 @@ public class Arvore {
     // A raiz é um nó sentinela sem pista — seus filhos são as pistas iniciais do jogo
     private NoArvore raiz;
 
+    // Cria a árvore apenas com a raiz sentinela.
     public Arvore() {
         this.raiz = new NoArvore(null);
     }
 
     // Localiza o nó com idPai (null = raiz) e adiciona filha como seu filho
     public void inserirDependencia(String idPai, Pista filha) {
-        NoArvore pai = (idPai == null) ? raiz : buscarNo(idPai);
+        NoArvore pai = (idPai == null) ? raiz : buscarNo(raiz, idPai);
         if (pai != null) {
             pai.filhos.add(new NoArvore(filha));
         }
+    }
+
+    // Busca a Pista com o id informado — a árvore é a fonte única dos dados
+    // das pistas (o Jogo consulta até título e descrição aqui).
+    public Pista buscarPista(String id) {
+        NoArvore no = (id == null) ? null : buscarNo(raiz, id);
+        return (no != null) ? no.pista : null;
     }
 
     // Retorna os ids das pistas cujo pai já está no histórico do jogador
@@ -31,6 +39,7 @@ public class Arvore {
         return disponiveis;
     }
 
+    // Passo recursivo do DFS: filhos de nós já coletados entram na lista.
     private void coletarPistasDisponiveis(NoArvore atual, ListaEncadeada historico, List<String> disponiveis) {
         boolean noAtualColetado = (atual == raiz) || historico.contemPista(atual.pista.id);
         if (!noAtualColetado) {
@@ -44,17 +53,13 @@ public class Arvore {
         }
     }
 
-    // Busca o nó com o id informado, ou null. Usa busca em profundidade (DFS recursivo).
-    private NoArvore buscarNo(String id) {
-        return buscarNoRecursivo(raiz, id);
-    }
-
-    private NoArvore buscarNoRecursivo(NoArvore atual, String id) {
+    // Busca o nó com o id informado, ou null (busca em profundidade, DFS).
+    private NoArvore buscarNo(NoArvore atual, String id) {
         if (atual != raiz && atual.pista.id.equals(id)) {
             return atual;
         }
         for (NoArvore filho : atual.filhos) {
-            NoArvore encontrado = buscarNoRecursivo(filho, id);
+            NoArvore encontrado = buscarNo(filho, id);
             if (encontrado != null) {
                 return encontrado;
             }

@@ -20,6 +20,7 @@ public class Pista {
     public int cor = 0; // 0=comum (azul), 1=importante (verde), 2=excelência (amarelo)
     public String simbolo = "";
 
+    // Cria a pista com id, título e descrição (papel visual default: comum).
     public Pista(String id, String titulo, String descricao) {
         this.id = id;
         this.titulo = titulo;

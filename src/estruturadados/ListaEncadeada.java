@@ -6,6 +6,7 @@ public class ListaEncadeada {
 
     private NoLista inicio;
 
+    // Cria a lista vazia.
     public ListaEncadeada() {
         this.inicio = null;
     }
@@ -48,6 +49,7 @@ public class ListaEncadeada {
         return sb.toString();
     }
 
+    // Devolve o id da última pista coletada (null se a lista está vazia).
     public String getUltimaPista() {
         if (inicio == null) return null;
         NoLista atual = inicio;
