@@ -54,8 +54,6 @@ public class ListaEncadeada {
         return ids;
     }
 
-    // Formata o histórico no padrão "[a] -> [b] -> FIM"; exibir é
-    // responsabilidade do chamador (no jogo, via Terminal.exibir()).
     public String formatarHistorico() {
         StringBuilder sb = new StringBuilder();
         NoLista atual = inicio;
@@ -65,6 +63,26 @@ public class ListaEncadeada {
         }
         sb.append("FIM");
         return sb.toString();
+    }
+
+    public String getUltimaPista() {
+        if (inicio == null) return null;
+        NoLista atual = inicio;
+        while (atual.proximo != null) {
+            atual = atual.proximo;
+        }
+        return atual.idPista;
+    }
+
+    public void adicionarSeNaoExistir(ListaEncadeada outra) {
+        if (outra == null) return;
+        NoLista atual = outra.inicio;
+        while (atual != null) {
+            if (!this.contemPista(atual.idPista)) {
+                this.inserirPista(atual.idPista);
+            }
+            atual = atual.proximo;
+        }
     }
 
     // Mantida por conformidade com a API documentada; o jogo usa formatarHistorico().

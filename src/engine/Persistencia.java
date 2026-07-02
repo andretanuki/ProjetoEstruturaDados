@@ -3,6 +3,7 @@ package engine;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import estruturadados.ListaEncadeada;
 
 public class Persistencia {
 
@@ -19,11 +20,6 @@ public class Persistencia {
     private static final String SEPARADOR = "----------------------------------------";
 
     private String caminhoArquivo;
-
-    // Rotas de sessões ANTERIORES do jogador (cache: o Jogo passa o
-    // todosCaminhos cumulativo — sem isto, as rotas da sessão contariam 2x).
-    private String jogadorCache;
-    private List<String> rotasAnteriores;
 
     public Persistencia(String caminhoArquivo) {
         this.caminhoArquivo = caminhoArquivo;
@@ -43,22 +39,7 @@ public class Persistencia {
         }
     }
 
-    // 'tentativas' mantido por compatibilidade; o total gravado deriva das rotas.
-    public void salvar(String nomeJogador, int tentativas, List<String[]> caminhos, boolean venceu) {
-        if (!nomeJogador.equals(jogadorCache)) {
-            jogadorCache = nomeJogador;
-            rotasAnteriores = extrairRotas(nomeJogador);
-        }
-
-        List<String> rotas = new ArrayList<>(rotasAnteriores);
-        for (String[] caminho : caminhos) {
-            StringBuilder rota = new StringBuilder();
-            for (String pista : caminho) {
-                rota.append("[").append(pista).append("] -> ");
-            }
-            rota.append("FIM");
-            rotas.add(rota.toString());
-        }
+    public void salvar(String nomeJogador, List<ListaEncadeada> todasTentativas, boolean venceu) {
 
         String blocosDosOutros = lerBlocosExceto(nomeJogador);
 
@@ -68,10 +49,10 @@ public class Persistencia {
 
             pw.print(blocosDosOutros);
             pw.println(MARCADOR + nomeJogador);
-            pw.println("Tentativas: " + rotas.size());
+            pw.println("Tentativas: " + todasTentativas.size());
             pw.println("Último Resultado: " + (venceu ? "Caso Solucionado" : "Investigação Mal Sucedida"));
-            for (int i = 0; i < rotas.size(); i++) {
-                pw.println("  Caminho " + (i + 1) + ": " + rotas.get(i));
+            for (int i = 0; i < todasTentativas.size(); i++) {
+                pw.println("  Caminho " + (i + 1) + ": " + todasTentativas.get(i).formatarHistorico());
             }
             pw.println(SEPARADOR);
 
@@ -116,38 +97,24 @@ public class Persistencia {
         return historico.toString();
     }
 
-    // Extrai só as rotas ("[a] -> [b] -> FIM") do bloco do jogador, sem o
-    // prefixo "  Caminho N: " — elas são renumeradas na regravação.
-    // Lista vazia se o jogador ainda não tem bloco no arquivo.
-    private List<String> extrairRotas(String nomeJogador) {
-        List<String> rotas = new ArrayList<>();
+    // Reconstrói as ListaEncadeada dos caminhos já salvos do jogador, lendo
+    // as linhas "  Caminho N: [a] -> [b] -> FIM" do bloco dele no arquivo.
+    // Lista vazia se o jogador ainda não tem bloco.
+    public List<ListaEncadeada> carregarCaminhos(String nomeJogador) {
+        List<ListaEncadeada> caminhos = new ArrayList<>();
         for (String linha : carregarHistorico(nomeJogador).split("\n")) {
-            if (linha.startsWith("  Caminho ")) {
-                int doisPontos = linha.indexOf(": ");
-                if (doisPontos >= 0) {
-                    rotas.add(linha.substring(doisPontos + 2));
-                }
-            }
-        }
-        return rotas;
-    }
+            if (!linha.startsWith("  Caminho ")) continue;
+            int doisPontos = linha.indexOf(": ");
+            if (doisPontos < 0) continue;
 
-    // Devolve os caminhos de sessões anteriores do jogador como List<String[]>,
-    // para que o Jogo possa pré-popular o mapa de cores com o histórico completo.
-    // Cada String[] contém os ids das pistas coletadas naquele caminho, sem "FIM".
-    // Exemplo: "[cracha] -> [camera] -> FIM" -> {"cracha", "camera"}
-    public List<String[]> carregarCaminhos(String nomeJogador) {
-        List<String[]> caminhos = new ArrayList<>();
-        for (String rota : extrairRotas(nomeJogador)) {
-            String[] partes = rota.split(" -> ");
-            List<String> ids = new ArrayList<>();
-            for (String parte : partes) {
+            ListaEncadeada lista = new ListaEncadeada();
+            for (String parte : linha.substring(doisPontos + 2).split(" -> ")) {
                 if (parte.startsWith("[") && parte.endsWith("]")) {
-                    ids.add(parte.substring(1, parte.length() - 1));
+                    lista.inserirPista(parte.substring(1, parte.length() - 1));
                 }
             }
-            if (!ids.isEmpty()) {
-                caminhos.add(ids.toArray(new String[0]));
+            if (lista.getUltimaPista() != null) {
+                caminhos.add(lista);
             }
         }
         return caminhos;

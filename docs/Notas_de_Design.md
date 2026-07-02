@@ -133,14 +133,16 @@ de rotina para quem já os coletou e alerta real para quem não.
   ----------------------------------------
   ```
 
-- `salvar()` é chamado ao fim de cada partida (crash-safe) e **reescreve o
-  arquivo inteiro**: blocos dos outros jogadores preservados intactos, bloco
-  do jogador reconstruído (rotas de sessões anteriores + rotas da sessão).
+- No login, `carregarCaminhos()` reconstrói as ListaEncadeada das rotas já
+  salvas e semeia `todasTentativas` — a sessão nasce com o histórico
+  completo. Por isso `salvar()` não precisa de merge nem cache: é chamado ao
+  fim de cada partida (crash-safe) e **reescreve o arquivo inteiro** com
+  `todasTentativas` (blocos dos outros jogadores preservados intactos).
   A reescrita sem modo append é intencional — o aviso original "nunca
   FileWriter sem true" valia para o formato append antigo.
-- O cache `rotasAnteriores` existe porque o `Jogo` passa `todosCaminhos`
-  cumulativo a cada partida: sem o cache, as rotas da própria sessão seriam
-  contadas duas vezes a cada regravação.
+- Consequência: o RELATÓRIO é unificado entre sessões (Tentativa 1..N
+  acumula tudo que o jogador já jogou) e, por decisão do usuário, NÃO tem
+  linha de Data/Hora — um carimbo único não faz sentido num acumulado.
 - Arquivos no formato antigo (`>>> SESSÃO DE:`) não são migrados.
 
 ## 9. Avisos de implementação (estruturas de dados)
