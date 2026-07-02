@@ -9,8 +9,8 @@ import java.util.Scanner;
 // arquivo de script (test_inputs/), pausas e limpeza de tela.
 public class Terminal {
 
-    // Emojis são ativaveis pela flag -e/--emoji (cores sempre ficam ligadas)
-    // Para lidar com terminais que não desenham emoji
+    // Emojis são ativaveis pela flag -e/--emoji 
+    // Para lidar com terminais que não tem suporte a emoji
     public static boolean emojisAtivos = false;
 
     private Scanner scanner;
@@ -55,7 +55,7 @@ public class Terminal {
     }
 
     // Sem a flag -e, troca os símbolos decorativos por equivalentes ASCII
-    // (nem toda fonte de terminal desenha emoji).
+    // (nem todo terminal/fonte suporta emoji).
     private String semEmojis(String texto) {
         return texto.replace("☎", "#")
                     .replace("★", "*")

@@ -4,7 +4,7 @@ package engine;
 // com a regra de pintura ANSI embutida.
 public class Pista {
 
-    // Códigos ANSI do jogo - regra de pintura do jogo
+    // Códigos de Formatação do jogo - regra de cores
     private static final String ANSI_RESET = "\033[0m";
     private static final String[] ANSI_CORES = {
         "\033[34m", // 0 = pista comum (azul)

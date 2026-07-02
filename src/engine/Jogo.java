@@ -92,7 +92,7 @@ public class Jogo {
         reiniciar();
     }
 
-    // Exibe o epílogo do desfecho e o relatório unificado (todas as
+    // Exibe o epílogo e o relatório unificado (todas as
     // tentativas do jogador + mapa colorido do caso) e grava na persistência.
     private void imprimirRelatorio(int desfecho) {
         todasTentativas.add(historico);
